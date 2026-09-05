@@ -1,3 +1,4 @@
+import { UNITS, type Unit } from '@pantry/shared'
 import { BrowserRouter, Route, Routes } from 'react-router'
 import { AppShell } from './components/AppShell'
 import { AiPage } from './pages/AiPage'
@@ -6,6 +7,8 @@ import { InventoryPage } from './pages/InventoryPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { ScanPage } from './pages/ScanPage'
 import { ShoppingPage } from './pages/ShoppingPage'
+
+export const supportedUnits: readonly Unit[] = UNITS
 
 export default function App() {
   return (
