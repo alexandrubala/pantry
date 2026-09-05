@@ -1,10 +1,25 @@
+import { BrowserRouter, Route, Routes } from 'react-router'
+import { AppShell } from './components/AppShell'
+import { AiPage } from './pages/AiPage'
+import { HomePage } from './pages/HomePage'
+import { InventoryPage } from './pages/InventoryPage'
+import { NotFoundPage } from './pages/NotFoundPage'
+import { ScanPage } from './pages/ScanPage'
+import { ShoppingPage } from './pages/ShoppingPage'
+
 export default function App() {
   return (
-    <main className="min-h-dvh bg-background px-4 py-10">
-      <div className="rounded-lg border border-border bg-surface p-6 shadow-surface">
-        <h1 className="text-2xl font-semibold tracking-tight">Pantry</h1>
-        <p className="mt-2 text-muted">Home inventory, simplified.</p>
-      </div>
-    </main>
+    <BrowserRouter>
+      <Routes>
+        <Route element={<AppShell />}>
+          <Route index element={<HomePage />} />
+          <Route path="inventory" element={<InventoryPage />} />
+          <Route path="scan" element={<ScanPage />} />
+          <Route path="shopping" element={<ShoppingPage />} />
+          <Route path="ai" element={<AiPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   )
 }
