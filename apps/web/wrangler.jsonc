@@ -1,11 +1,10 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "pantry",
-  // Set this to today's date
   "compatibility_date": "2026-09-05",
   "main": "./worker/index.ts",
-  // Minimum SPA/API coexistence for the Cloudflare Vite plugin.
-  // Task 0.8 owns the full Static Assets configuration.
+  // Vite plugin sets assets.directory from the client build. Do not set it here.
+  // /api/* → Worker first. Everything else → static assets / React SPA fallback.
   "assets": {
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"],
