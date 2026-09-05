@@ -9,4 +9,12 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"],
   },
+  // Local Vite/Wrangler uses a simulated D1 by default. Do not set remote: true.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "pantry",
+      "database_id": "d95a8fcf-545c-46c1-82df-998f96dd8cc7",
+    },
+  ],
 }
