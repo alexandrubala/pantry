@@ -12,7 +12,7 @@ yarn-error.log*
 .env
 .env.*
 !.env.example
-.dev.vars
+.dev.vars*
 
 # Build / cache
 dist

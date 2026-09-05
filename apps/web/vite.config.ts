@@ -1,3 +1,4 @@
+import { cloudflare } from '@cloudflare/vite-plugin'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
@@ -10,7 +11,11 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     react(),
-    VitePWA({
+    // After the framework plugin, per Cloudflare Vite plugin docs.
+    cloudflare(),
+    // Restrict PWA generation to the Vite client environment so Workbox
+    // artifacts are not emitted into the Worker build output.
+    ...VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       // Icons and public assets are picked up once via workbox.globPatterns.
@@ -59,6 +64,11 @@ export default defineConfig({
       devOptions: {
         enabled: process.env.SW_DEV === 'true',
       },
-    }),
+    }).map((plugin) => ({
+      ...plugin,
+      applyToEnvironment(environment: { name: string }) {
+        return environment.name === 'client'
+      },
+    })),
   ],
 })
