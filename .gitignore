@@ -1,0 +1,29 @@
+# Dependencies
+node_modules
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+.dev.vars
+
+# Build / cache
+dist
+build
+.turbo
+.cache
+.vite
+.wrangler
+coverage
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
