@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "db:migrate:local": "wrangler d1 migrations apply pantry --local",
+    "db:migrate:remote": "wrangler d1 migrations apply pantry --remote",
+    "db:migrations:list:local": "wrangler d1 migrations list pantry --local",
+    "db:migrations:list:remote": "wrangler d1 migrations list pantry --remote"
   },
   "dependencies": {
     "@pantry/shared": "workspace:*",

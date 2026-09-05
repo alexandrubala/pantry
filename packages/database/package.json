@@ -1,5 +1,6 @@
 {
   "name": "@pantry/database",
   "private": true,
-  "version": "0.0.0"
+  "version": "0.0.0",
+  "description": "Canonical SQLite migrations, schema notes, and seed files for Pantry"
 }
