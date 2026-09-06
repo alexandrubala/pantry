@@ -1,7 +1,9 @@
 import { CircleUser, LoaderCircle, LogOut } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { useHousehold } from '../household/HouseholdProvider'
 import { authClient } from '../lib/auth-client'
+import { mapPantryApiError } from '../lib/pantry-api-error'
 
 export function AccountMenu() {
   const navigate = useNavigate()
@@ -10,7 +12,10 @@ export function AccountMenu() {
   const panelRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const [isSwitching, setIsSwitching] = useState(false)
+  const [switchError, setSwitchError] = useState<string | null>(null)
   const { data: session } = authClient.useSession()
+  const { household, households, switchHousehold } = useHousehold()
   const user = session?.user
 
   useEffect(() => {
@@ -90,6 +95,44 @@ export function AccountMenu() {
         >
           <p className="truncate text-sm font-medium text-text">{user.name}</p>
           <p className="mt-0.5 truncate text-sm text-muted">{user.email}</p>
+          {household && households.length <= 1 ? (
+            <p className="mt-2 truncate text-sm text-muted">{household.name}</p>
+          ) : null}
+          {households.length > 1 ? (
+            <div className="mt-3">
+              <p className="text-xs font-medium tracking-wide text-muted uppercase">Casa activă</p>
+              <div className="mt-1.5 flex flex-col gap-1">
+                {households.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    disabled={item.isActive || isSwitching || isSigningOut}
+                    className={`flex min-h-touch w-full items-center rounded-lg px-3 text-left text-sm ${
+                      item.isActive ? 'bg-surface font-medium text-text' : 'text-muted'
+                    } disabled:opacity-60`}
+                    onClick={() => {
+                      if (item.isActive || isSwitching) {
+                        return
+                      }
+
+                      setSwitchError(null)
+                      setIsSwitching(true)
+                      void switchHousehold(item.id)
+                        .catch((cause) => {
+                          setSwitchError(mapPantryApiError(cause))
+                        })
+                        .finally(() => {
+                          setIsSwitching(false)
+                        })
+                    }}
+                  >
+                    {item.name}
+                  </button>
+                ))}
+              </div>
+              {switchError ? <p className="mt-1 text-sm text-destructive">{switchError}</p> : null}
+            </div>
+          ) : null}
           <button
             type="button"
             className="mt-3 flex h-touch min-h-touch w-full items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-text disabled:opacity-60"

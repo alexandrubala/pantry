@@ -1,18 +1,14 @@
 {
-  "name": "@pantry/database",
+  "name": "@pantry/core",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Canonical SQLite migrations, schema notes, and repository adapters for Pantry",
   "exports": {
-    "./d1": "./adapters/d1/index.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
-  },
-  "dependencies": {
-    "@pantry/core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "~6.0.2",

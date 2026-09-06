@@ -15,6 +15,8 @@
     "db:migrations:list:remote": "wrangler d1 migrations list pantry --remote"
   },
   "dependencies": {
+    "@pantry/core": "workspace:*",
+    "@pantry/database": "workspace:*",
     "@pantry/shared": "workspace:*",
     "better-auth": "^1.7.3",
     "hono": "^4.13.7",

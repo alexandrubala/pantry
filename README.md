@@ -12,8 +12,9 @@ Household inventory PWA. This repository is a pnpm monorepo.
 ## Structure
 
 - `apps/web` — Pantry web app (PWA + Worker, later phases)
+- `packages/core` — runtime-independent household/location domain and ports
 - `packages/shared` — shared TypeScript modules
-- `packages/database` — canonical SQL migrations (D1 now; local SQLite later)
+- `packages/database` — canonical SQL migrations and D1 adapters (local SQLite later)
 - `home-assistant` — Home Assistant integration and Lovelace card
 
 ## Setup

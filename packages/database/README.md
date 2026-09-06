@@ -1,10 +1,11 @@
 # `@pantry/database`
 
-Infrastructure-only package. Canonical SQL lives here. Repository adapters belong later.
+Infrastructure-only package. Canonical SQL and D1 repository adapters live here.
 
 ## Layout
 
 - `migrations/` — versioned SQLite SQL applied by Wrangler D1 now, and reusable later by a local SQLite / Docker runner (Phase 12). Do not keep a second copy under `apps/web`.
+- `adapters/d1/` — Cloudflare D1 implementations of `@pantry/core` ports.
 - `schema/` — reserved for future schema notes. Production schema changes ship as migrations, not as ad-hoc SQL.
 - `seed/` — development / fixture data only. Never mix seed files into production migrations.
 
@@ -23,7 +24,9 @@ Commands from the repo root. Wrangler config is `apps/web/wrangler.jsonc`.
 
 `0003_profiles.sql` creates `profiles`, keyed by Better Auth `"user"."id"` (`ON DELETE CASCADE`).
 
-`active_household_id` is intentionally deferred. `households` does not exist until Phase 2; a later migration will add `active_household_id` → `households(id)` `ON DELETE SET NULL`.
+`0004_households.sql` creates `households`, `household_members`, and `locations`, then adds `profiles.active_household_id` → `households(id)` `ON DELETE SET NULL` via `ALTER TABLE ADD COLUMN`. Invitations are deferred.
+
+D1 adapters live in `adapters/d1/` and implement `@pantry/core` ports. They must not be imported from `packages/core`.
 
 ## Portability
 
