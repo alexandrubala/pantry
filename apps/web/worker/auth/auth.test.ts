@@ -34,6 +34,12 @@ function authEnv() {
 test('createAuth initializes against a D1-like binding', () => {
   const auth = createAuth(authEnv() as CloudflareBindings)
   expect(typeof auth.handler).toBe('function')
+  expect(typeof auth.api.getSession).toBe('function')
+})
+
+test('createAuth registers a Better Auth user.create.after database hook', () => {
+  const auth = createAuth(authEnv() as CloudflareBindings)
+  expect(typeof auth.options.databaseHooks?.user?.create?.after).toBe('function')
 })
 
 test('GET /api/auth/ok is mounted as a Worker route', async () => {

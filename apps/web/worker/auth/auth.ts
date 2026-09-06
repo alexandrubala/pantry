@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth'
+import { ensureProfile } from '../profiles/profile.js'
 
 function createAuthInstance(env: CloudflareBindings) {
   return betterAuth({
@@ -9,6 +10,19 @@ function createAuthInstance(env: CloudflareBindings) {
     basePath: '/api/auth',
     emailAndPassword: {
       enabled: true,
+    },
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user) => {
+            try {
+              await ensureProfile(env.DB, { id: user.id, name: user.name })
+            } catch {
+              console.error(JSON.stringify({ message: 'ensureProfile after signup failed' }))
+            }
+          },
+        },
+      },
     },
   })
 }

@@ -19,6 +19,12 @@ Commands from the repo root. Wrangler config is `apps/web/wrangler.jsonc`.
 
 `install`, `dev`, `test`, and `build` must not mutate remote D1. Remote apply is always a separate command (suitable later for: typecheck → test → build → `db:migrate:remote` → deploy).
 
+## Application tables
+
+`0003_profiles.sql` creates `profiles`, keyed by Better Auth `"user"."id"` (`ON DELETE CASCADE`).
+
+`active_household_id` is intentionally deferred. `households` does not exist until Phase 2; a later migration will add `active_household_id` → `households(id)` `ON DELETE SET NULL`.
+
 ## Portability
 
 Write portable SQLite. Avoid D1-only syntax unless necessary. If a future migration needs D1-specific behavior, isolate it, comment it, and document the local SQLite equivalent in that file.
