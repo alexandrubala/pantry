@@ -58,7 +58,12 @@ export default defineConfig({
         // Keep /api/* on the network. Do not treat API traffic as app-shell
         // navigations or offline application data (offline snapshots are Task 10.2).
         navigateFallbackDenylist: [/^\/api\//],
-        runtimeCaching: [],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith('/api/'),
+            handler: 'NetworkOnly',
+          },
+        ],
       },
       // Normal Vite HMR stays unencumbered. Opt in with SW_DEV=true to test the SW.
       devOptions: {

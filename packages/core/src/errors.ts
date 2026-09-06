@@ -13,6 +13,7 @@ export const DOMAIN_ERROR_CODES = [
   'INVALID_EXPIRY',
   'INSUFFICIENT_STOCK',
   'STOCK_CONFLICT',
+  'SHOPPING_UNIT_CONFLICT',
 ] as const
 
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number]
@@ -51,6 +52,7 @@ export function httpStatusForDomainError(code: DomainErrorCode): 400 | 404 | 409
     case 'BARCODE_TAKEN':
     case 'INSUFFICIENT_STOCK':
     case 'STOCK_CONFLICT':
+    case 'SHOPPING_UNIT_CONFLICT':
       return 409
   }
 }

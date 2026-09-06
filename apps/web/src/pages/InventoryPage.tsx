@@ -1,4 +1,4 @@
-import { DomainError, validateProductName, validateQuantity, type InventoryItem, type Unit } from '@pantry/core'
+import { DomainError, suggestShoppingQuantity, validateQuantity, validateProductName, type InventoryItem, type Unit } from '@pantry/core'
 import { LoaderCircle, Plus, Search } from 'lucide-react'
 import { useCallback, useEffect, useId, useState, type FormEvent } from 'react'
 import { InventoryProductCard } from '../components/inventory/InventoryProductCard'
@@ -15,7 +15,7 @@ import {
   insufficientStockMessage,
   mapPantryApiError,
 } from '../lib/pantry-api-error'
-import { addStock, consumeStock, createProduct, getInventory } from '../lib/pantry-api'
+import { addStock, addShoppingProductItem, consumeStock, createProduct, getInventory } from '../lib/pantry-api'
 
 const UNIT_OPTIONS: Array<{ value: Unit; label: string }> = [
   { value: 'g', label: 'g' },
@@ -32,6 +32,7 @@ type SheetState =
   | { type: 'add-product' }
   | { type: 'add-stock'; item: InventoryItem }
   | { type: 'consume'; item: InventoryItem }
+  | { type: 'shop'; item: InventoryItem }
 
 export function InventoryPage() {
   const { household, locations } = useHousehold()
@@ -43,6 +44,9 @@ export function InventoryPage() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [sheet, setSheet] = useState<SheetState>({ type: 'closed' })
+  const [shopNotice, setShopNotice] = useState<string | null>(null)
+  const [shopError, setShopError] = useState<string | null>(null)
+  const [shoppingProductId, setShoppingProductId] = useState<string | null>(null)
 
   const householdId = household?.id ?? null
   const activeLocationId = locations.some((location) => location.id === locationId)
@@ -68,6 +72,8 @@ export function InventoryPage() {
     setLocationId(null)
     setItems([])
     setSheet({ type: 'closed' })
+    setShopNotice(null)
+    setShopError(null)
   }, [householdId])
 
   useEffect(() => {
@@ -101,6 +107,39 @@ export function InventoryPage() {
 
   const empty = status === 'ready' && items.length === 0 && !search && !activeLocationId
   const noMatches = status === 'ready' && items.length === 0 && (search.length > 0 || activeLocationId !== null)
+
+  async function addInventoryProductToShopping(item: InventoryItem, quantity: number, unit: Unit) {
+    await addShoppingProductItem({
+      productId: item.product.id,
+      quantity,
+      unit,
+    })
+    setShopError(null)
+    setShopNotice(`${item.product.name} a fost adăugat la cumpărături.`)
+  }
+
+  async function handleAddToShopping(item: InventoryItem) {
+    if (shoppingProductId) {
+      return
+    }
+
+    const suggestion = suggestShoppingQuantity(item.product)
+    if (!suggestion) {
+      setSheet({ type: 'shop', item })
+      return
+    }
+
+    setShoppingProductId(item.product.id)
+    setShopNotice(null)
+    setShopError(null)
+    try {
+      await addInventoryProductToShopping(item, suggestion.quantity, suggestion.unit)
+    } catch (cause) {
+      setShopError(mapPantryApiError(cause))
+    } finally {
+      setShoppingProductId(null)
+    }
+  }
 
   return (
     <section>
@@ -156,6 +195,13 @@ export function InventoryPage() {
 
       {status === 'error' ? <p className="mt-8 text-sm text-destructive">{loadError}</p> : null}
 
+      {shopNotice ? <p className="mt-4 text-sm text-success">{shopNotice}</p> : null}
+      {shopError ? (
+        <p className="mt-4 text-sm text-destructive" role="alert">
+          {shopError}
+        </p>
+      ) : null}
+
       {empty ? (
         <div className="mt-10 text-center">
           <p className="text-muted">Inventarul tău este gol.</p>
@@ -177,8 +223,10 @@ export function InventoryPage() {
             <li key={item.product.id}>
               <InventoryProductCard
                 item={item}
+                shoppingBusy={shoppingProductId === item.product.id}
                 onAddStock={() => setSheet({ type: 'add-stock', item })}
                 onConsume={() => setSheet({ type: 'consume', item })}
+                onAddToShopping={() => void handleAddToShopping(item)}
               />
             </li>
           ))}
@@ -216,6 +264,17 @@ export function InventoryPage() {
           onClose={() => setSheet({ type: 'closed' })}
           onSaved={async () => {
             await reload()
+            setSheet({ type: 'closed' })
+          }}
+        />
+      ) : null}
+
+      {sheet.type === 'shop' ? (
+        <ShopConfirmSheet
+          item={sheet.item}
+          onClose={() => setSheet({ type: 'closed' })}
+          onSaved={async (quantity, unit) => {
+            await addInventoryProductToShopping(sheet.item, quantity, unit)
             setSheet({ type: 'closed' })
           }}
         />
@@ -649,6 +708,100 @@ function ConsumeSheet({
         >
           {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
           {isSubmitting ? 'Se consumă...' : 'Consumă'}
+        </button>
+      </form>
+    </InventorySheet>
+  )
+}
+
+function ShopConfirmSheet({
+  item,
+  onClose,
+  onSaved,
+}: {
+  item: InventoryItem
+  onClose: () => void
+  onSaved: (quantity: number, unit: Unit) => Promise<void>
+}) {
+  const quantityId = useId()
+  const unitId = useId()
+  const [quantity, setQuantity] = useState('')
+  const [unit, setUnit] = useState<Unit>(item.product.unit)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (isSubmitting) {
+      return
+    }
+
+    setFormError(null)
+    let parsedQuantity: number
+    try {
+      parsedQuantity = validateQuantity(Number(quantity.replace(',', '.')))
+    } catch {
+      setFormError(QUANTITY_INVALID_MESSAGE)
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      await onSaved(parsedQuantity, unit)
+    } catch (cause) {
+      setFormError(mapPantryApiError(cause))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <InventorySheet title={`Cumpără · ${item.product.name}`} onClose={onClose}>
+      <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
+        <div>
+          <label className="text-sm font-medium" htmlFor={quantityId}>
+            Cantitate
+          </label>
+          <input
+            id={quantityId}
+            inputMode="decimal"
+            value={quantity}
+            onChange={(event) => setQuantity(event.target.value)}
+            disabled={isSubmitting}
+            required
+            className={fieldClassName}
+            placeholder="500"
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium" htmlFor={unitId}>
+            Unitate
+          </label>
+          <select
+            id={unitId}
+            value={unit}
+            onChange={(event) => setUnit(event.target.value as Unit)}
+            disabled={isSubmitting}
+            className={fieldClassName}
+          >
+            {UNIT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div role="alert" aria-live="assertive" className="min-h-5 text-sm text-destructive">
+          {formError}
+        </div>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          aria-busy={isSubmitting}
+          className="flex h-touch min-h-touch w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-accent-foreground shadow-surface disabled:opacity-60"
+        >
+          {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
+          {isSubmitting ? 'Se adaugă...' : 'Adaugă la cumpărături'}
         </button>
       </form>
     </InventorySheet>

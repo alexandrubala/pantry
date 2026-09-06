@@ -7,6 +7,7 @@ import {
   NETWORK_PANTRY_FAILURE_MESSAGE,
   PRODUCT_NAME_INVALID_MESSAGE,
   STOCK_CONFLICT_MESSAGE,
+  SHOPPING_UNIT_CONFLICT_MESSAGE,
   CATALOG_UNAVAILABLE_MESSAGE,
   BARCODE_INVALID_MESSAGE,
   insufficientStockMessage,
@@ -25,6 +26,9 @@ test('maps household, location, and inventory API codes to Romanian copy', () =>
   )
   expect(mapPantryApiError(new PantryApiError(409, 'STOCK_CONFLICT', 'STOCK_CONFLICT'))).toBe(
     STOCK_CONFLICT_MESSAGE,
+  )
+  expect(mapPantryApiError(new PantryApiError(409, 'SHOPPING_UNIT_CONFLICT', 'SHOPPING_UNIT_CONFLICT'))).toBe(
+    SHOPPING_UNIT_CONFLICT_MESSAGE,
   )
   expect(mapPantryApiError(new PantryApiError(400, 'Invalid barcode', 'INVALID_BARCODE'))).toBe(
     BARCODE_INVALID_MESSAGE,

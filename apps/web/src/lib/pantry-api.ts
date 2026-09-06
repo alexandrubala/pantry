@@ -7,6 +7,8 @@ import type {
   LocationRecord,
   ProductNutrition,
   ProductRecord,
+  ShoppingItem,
+  ShoppingList,
   Unit,
 } from '@pantry/core'
 import { apiGet, apiSend } from './api'
@@ -49,6 +51,14 @@ export type InventoryMutationResponse = {
 
 export type InventoryHistoryResponse = {
   history: InventoryHistoryEntry[]
+}
+
+export type ShoppingListResponse = {
+  list: ShoppingList
+}
+
+export type ShoppingItemResponse = {
+  item: ShoppingItem
 }
 
 export function getHouseholds() {
@@ -156,4 +166,34 @@ export function consumeStock(input: { productId: string; quantity: number }) {
 export function getInventoryHistory(productId?: string) {
   const query = productId ? `?productId=${encodeURIComponent(productId)}` : ''
   return apiGet<InventoryHistoryResponse>(`/api/v1/inventory/history${query}`)
+}
+
+export function getShoppingList() {
+  return apiGet<ShoppingListResponse>('/api/v1/shopping')
+}
+
+export function addShoppingProductItem(input: { productId: string; quantity: number; unit: Unit }) {
+  return apiSend<ShoppingItemResponse>('/api/v1/shopping/items/product', 'POST', input)
+}
+
+export function addShoppingManualItem(input: {
+  name: string
+  quantity?: number | null
+  unit?: Unit | null
+}) {
+  return apiSend<ShoppingItemResponse>('/api/v1/shopping/items', 'POST', input)
+}
+
+export function toggleShoppingItem(itemId: string, checked: boolean) {
+  return apiSend<ShoppingItemResponse>(`/api/v1/shopping/items/${encodeURIComponent(itemId)}`, 'PATCH', {
+    checked,
+  })
+}
+
+export function removeShoppingItem(itemId: string) {
+  return apiSend<void>(`/api/v1/shopping/items/${encodeURIComponent(itemId)}`, 'DELETE')
+}
+
+export function clearCompletedShoppingItems() {
+  return apiSend<ShoppingListResponse>('/api/v1/shopping/clear-completed', 'POST', {})
 }

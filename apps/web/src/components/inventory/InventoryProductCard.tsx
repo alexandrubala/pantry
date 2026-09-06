@@ -13,10 +13,14 @@ export function InventoryProductCard({
   item,
   onAddStock,
   onConsume,
+  onAddToShopping,
+  shoppingBusy = false,
 }: {
   item: InventoryItem
   onAddStock: () => void
   onConsume: () => void
+  onAddToShopping: () => void
+  shoppingBusy?: boolean
 }) {
   const expirySoon = item.nearestExpiry ? isExpirySoon(item.nearestExpiry) : false
   const nutrition = item.product.nutrition
@@ -74,6 +78,14 @@ export function InventoryProductCard({
           onClick={onConsume}
         >
           Consumă
+        </button>
+        <button
+          type="button"
+          disabled={shoppingBusy}
+          className="col-span-2 flex h-touch min-h-touch items-center justify-center rounded-lg border border-border px-3 text-sm font-medium disabled:opacity-60"
+          onClick={onAddToShopping}
+        >
+          Cumpără
         </button>
       </div>
     </article>

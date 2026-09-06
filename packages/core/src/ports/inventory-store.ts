@@ -19,6 +19,8 @@ export type InventoryProduct = {
   barcode: string | null
   imageUrl: string | null
   externalCatalog: ExternalCatalogId | null
+  packageQuantity: number | null
+  packageUnit: Unit | null
   nutrition: ProductNutrition | null
 }
 

@@ -11,6 +11,6 @@ export type NavItem = {
 export const navItems: NavItem[] = [
   { to: '/inventory', label: 'Inventar', icon: Package },
   { to: '/scan', label: 'Scan', icon: ScanBarcode, prominent: true },
-  { to: '/shopping', label: 'Shopping', icon: ShoppingCart },
+  { to: '/shopping', label: 'Cumpărături', icon: ShoppingCart },
   { to: '/ai', label: 'AI', icon: ChefHat },
 ]

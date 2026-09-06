@@ -26,6 +26,8 @@ type LotJoinRow = {
   product_barcode: string | null
   product_image_url: string | null
   product_external_catalog: ExternalCatalogId | null
+  product_package_quantity: number | null
+  product_package_unit: Unit | null
   energy_kcal_100g: number | null
   protein_g_100g: number | null
   carbohydrates_g_100g: number | null
@@ -122,6 +124,8 @@ function aggregateItems(rows: LotJoinRow[]): InventoryItem[] {
         barcode: row.product_barcode,
         imageUrl: row.product_image_url,
         externalCatalog: row.product_external_catalog,
+        packageQuantity: row.product_package_quantity,
+        packageUnit: row.product_package_unit,
         nutrition: toInventoryNutrition(row),
       },
       totalQuantity: 0,
@@ -213,6 +217,8 @@ export function createD1InventoryStore(db: D1DatabaseLike): InventoryStore {
            p.barcode AS product_barcode,
            p.image_url AS product_image_url,
            p.external_catalog AS product_external_catalog,
+           p.package_quantity AS product_package_quantity,
+           p.package_unit AS product_package_unit,
            n.energy_kcal_100g AS energy_kcal_100g,
            n.protein_g_100g AS protein_g_100g,
            n.carbohydrates_g_100g AS carbohydrates_g_100g,

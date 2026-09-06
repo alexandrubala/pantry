@@ -66,6 +66,21 @@ export {
 } from './inventory/consumption.js'
 export { expiresKey, parseExpiresOn } from './inventory/expiry.js'
 export { validateQuantity } from './inventory/quantity.js'
+export {
+  MAX_SHOPPING_ITEM_NAME_LENGTH,
+  normalizeShoppingItemName,
+  validateShoppingItemName,
+} from './shopping/names.js'
+export {
+  validateOptionalShoppingQuantity,
+  validateOptionalShoppingUnit,
+} from './shopping/quantity.js'
+export {
+  mergeShoppingQuantities,
+  shoppingUnitsCompatible,
+  type ShoppingQuantity,
+} from './shopping/merge.js'
+export { suggestShoppingQuantity, type ShoppingQuantitySuggestion } from './shopping/suggest.js'
 export type {
   ActiveHousehold,
   CreateHouseholdResult,
@@ -83,3 +98,4 @@ export type {
   InventoryProduct,
   InventoryStore,
 } from './ports/inventory-store.js'
+export type { ShoppingItem, ShoppingList, ShoppingStore } from './ports/shopping-store.js'

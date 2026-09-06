@@ -77,9 +77,9 @@ export function apiGet<T>(path: string): Promise<T> {
   return apiRequest<T>(path)
 }
 
-export function apiSend<T>(path: string, method: 'POST' | 'PUT', body: unknown): Promise<T> {
+export function apiSend<T>(path: string, method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', body?: unknown): Promise<T> {
   return apiRequest<T>(path, {
     method,
-    body: JSON.stringify(body),
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   })
 }
