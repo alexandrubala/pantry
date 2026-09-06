@@ -1,5 +1,12 @@
 # Pantry
 
+Pantry is an open-source-ready household inventory project currently under active development.
+
+Deployment targets:
+
+- ☁️ Cloudflare
+- 🐳 Docker / self-hosted (planned after MVP)
+
 Household inventory PWA. This repository is a pnpm monorepo.
 
 ## Structure
@@ -14,6 +21,10 @@ Household inventory PWA. This repository is a pnpm monorepo.
 ```bash
 pnpm install
 ```
+
+## CI
+
+`pnpm ci:check` runs typecheck, tests, and the production build. It does not apply remote D1 migrations. GitHub Actions runs this on pull requests and pushes to `main`. Production deploys are owned by Cloudflare Workers Builds.
 
 ## Environment and configuration
 
@@ -52,7 +63,7 @@ The Worker owns secrets and third-party credentials. Expected later: `BETTER_AUT
 
 Local: copy `apps/web/.dev.vars.example` to `apps/web/.dev.vars` (gitignored). Production: Cloudflare dashboard, `wrangler secret`, or authenticated Cloudflare tooling/MCP. Never Git, `wrangler.jsonc`, the frontend bundle, or committed `.env` files.
 
-Workers Builds will later receive production secrets from Cloudflare, not from committed files. That pipeline is not configured yet.
+Workers Builds receives production secrets from Cloudflare, not from committed files. GitHub Actions runs quality checks only and does not deploy.
 
 ### Who may access what
 

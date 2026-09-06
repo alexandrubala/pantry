@@ -7,6 +7,8 @@
   "scripts": {
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
+    "build": "pnpm --filter web build",
+    "ci:check": "pnpm typecheck && pnpm test && pnpm build",
     "db:migrate:local": "pnpm --filter web db:migrate:local",
     "db:migrate:remote": "pnpm --filter web db:migrate:remote",
     "db:migrations:list:local": "pnpm --filter web db:migrations:list:local",
