@@ -2,8 +2,9 @@
 # Never commit `.dev.vars` or `.dev.vars.<environment>`.
 # Production secrets are set in Cloudflare, not in this repository.
 
-# Auth (not implemented yet — placeholders only)
-BETTER_AUTH_SECRET=
+# Generate a unique local secret with: openssl rand -base64 32
+# Do not reuse the production BETTER_AUTH_SECRET.
+BETTER_AUTH_SECRET=replace-with-a-32-plus-character-local-secret
 BETTER_AUTH_URL=http://localhost:5173
 
 # Future:
