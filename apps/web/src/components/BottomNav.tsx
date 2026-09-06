@@ -14,7 +14,7 @@ export function BottomNav() {
       aria-label="Primary"
       className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-surface pb-[env(safe-area-inset-bottom,0px)]"
     >
-      <ul className="mx-auto grid w-full max-w-lg grid-cols-5 items-end px-1 pt-1">
+      <ul className="mx-auto grid w-full max-w-lg grid-cols-4 items-end px-1 pt-1">
         {navItems.map((item) => {
           const Icon = item.icon
           const prominent = item.prominent === true
@@ -23,7 +23,6 @@ export function BottomNav() {
             <li key={item.to} className="min-w-0">
               <NavLink
                 to={item.to}
-                end={item.to === '/'}
                 className={({ isActive }) => navClassName(isActive)}
               >
                 {prominent ? (

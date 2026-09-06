@@ -1,15 +1,19 @@
 import { Eye, EyeOff, LoaderCircle } from 'lucide-react'
 import { useId, useState, type FormEvent } from 'react'
-import { Navigate, useNavigate } from 'react-router'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router'
+import { SessionLoading } from '../components/SessionLoading'
 import { authClient } from '../lib/auth-client'
+import { readReturnTo, resolvePostLoginPath } from '../lib/auth-redirect'
 import { mapLoginError } from '../lib/login-error'
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const emailId = useId()
   const passwordId = useId()
   const errorId = useId()
   const { data: session, isPending } = authClient.useSession()
+  const postLoginPath = resolvePostLoginPath(readReturnTo(location.state))
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [passwordVisible, setPasswordVisible] = useState(false)
@@ -17,20 +21,11 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (isPending) {
-    return (
-      <div
-        className="flex flex-1 flex-col items-center justify-center"
-        role="status"
-        aria-live="polite"
-      >
-        <LoaderCircle className="size-6 animate-spin text-accent" aria-hidden="true" />
-        <p className="mt-3 text-sm text-muted">Se încarcă...</p>
-      </div>
-    )
+    return <SessionLoading />
   }
 
   if (session?.user) {
-    return <Navigate replace to="/inventory" />
+    return <Navigate replace to={postLoginPath} />
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -58,7 +53,7 @@ export function LoginPage() {
         return
       }
 
-      await navigate('/inventory', { replace: true })
+      await navigate(postLoginPath, { replace: true })
     } catch (cause) {
       setFormError(mapLoginError(cause))
     } finally {
@@ -162,6 +157,13 @@ export function LoginPage() {
           {isSubmitting ? 'Se conectează...' : 'Conectează-te'}
         </button>
       </form>
+
+      <p className="mt-6 text-center text-sm text-muted">
+        Nu ai cont?{' '}
+        <Link to="/register" state={location.state} className="font-medium text-accent">
+          Creează unul
+        </Link>
+      </p>
     </section>
   )
 }
