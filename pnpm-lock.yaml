@@ -76,6 +76,10 @@ importers:
         version: 4.129.0
 
   packages/core:
+    dependencies:
+      '@pantry/shared':
+        specifier: workspace:*
+        version: link:../shared
     devDependencies:
       typescript:
         specifier: ~6.0.2

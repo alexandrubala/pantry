@@ -1,2 +1,4 @@
 export { createD1HouseholdStore } from './household-store.js'
+export { createD1ProductStore } from './product-store.js'
+export { createD1InventoryStore } from './inventory-store.js'
 export type { D1DatabaseLike, D1PreparedStatementLike } from './d1-like.js'

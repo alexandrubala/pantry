@@ -28,6 +28,24 @@ export {
   normalizeLocationName,
   validateLocationName,
 } from './location/names.js'
+export {
+  MAX_PRODUCT_BRAND_LENGTH,
+  MAX_PRODUCT_NAME_LENGTH,
+  normalizeProductName,
+  validateProductBrand,
+  validateProductName,
+} from './product/names.js'
+export { planManualProduct, type PlannedManualProduct } from './product/plan.js'
+export { UNITS, isUnit, validateProductUnit, type Unit } from './product/units.js'
+export {
+  buildConsumptionPlan,
+  totalAvailableQuantity,
+  type ConsumableLot,
+  type ConsumptionAllocation,
+  type ConsumptionPlanResult,
+} from './inventory/consumption.js'
+export { expiresKey, parseExpiresOn } from './inventory/expiry.js'
+export { validateQuantity } from './inventory/quantity.js'
 export type {
   ActiveHousehold,
   CreateHouseholdResult,
@@ -37,3 +55,11 @@ export type {
   HouseholdSummary,
   LocationRecord,
 } from './ports/household-store.js'
+export type { ProductRecord, ProductStore } from './ports/product-store.js'
+export type {
+  InventoryHistoryEntry,
+  InventoryItem,
+  InventoryLotRecord,
+  InventoryProduct,
+  InventoryStore,
+} from './ports/inventory-store.js'

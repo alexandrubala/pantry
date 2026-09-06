@@ -7,6 +7,16 @@ export const HOUSEHOLD_NAME_INVALID_MESSAGE = 'Introdu un nume valid pentru cas�
 export const LOCATION_NAME_INVALID_MESSAGE = 'Introdu un nume valid pentru locație.'
 export const LOCATION_NAME_TAKEN_MESSAGE = 'Există deja o locație cu acest nume.'
 export const HOUSEHOLD_REQUIRED_MESSAGE = 'Configurează mai întâi casa.'
+export const PRODUCT_NAME_INVALID_MESSAGE = 'Introdu un nume valid pentru produs.'
+export const PRODUCT_BRAND_INVALID_MESSAGE = 'Introdu un brand valid.'
+export const PRODUCT_UNIT_INVALID_MESSAGE = 'Alege o unitate validă.'
+export const QUANTITY_INVALID_MESSAGE = 'Introdu o cantitate mai mare decât 0.'
+export const EXPIRY_INVALID_MESSAGE = 'Introdu o dată de expirare validă.'
+export const STOCK_CONFLICT_MESSAGE = 'Stocul s-a schimbat. Încearcă din nou.'
+
+export function insufficientStockMessage(availableLabel: string): string {
+  return `Nu ai suficient stoc. Disponibil: ${availableLabel}`
+}
 
 export function mapPantryApiError(error: unknown): string {
   if (isPantryApiError(error) && (error.status === 0 || error.code === 'NETWORK')) {
@@ -27,6 +37,22 @@ export function mapPantryApiError(error: unknown): string {
         return LOCATION_NAME_TAKEN_MESSAGE
       case 'HOUSEHOLD_REQUIRED':
         return HOUSEHOLD_REQUIRED_MESSAGE
+      case 'INVALID_PRODUCT_NAME':
+        return PRODUCT_NAME_INVALID_MESSAGE
+      case 'INVALID_BRAND':
+        return PRODUCT_BRAND_INVALID_MESSAGE
+      case 'INVALID_UNIT':
+        return PRODUCT_UNIT_INVALID_MESSAGE
+      case 'INVALID_QUANTITY':
+        return QUANTITY_INVALID_MESSAGE
+      case 'INVALID_EXPIRY':
+        return EXPIRY_INVALID_MESSAGE
+      case 'STOCK_CONFLICT':
+        return STOCK_CONFLICT_MESSAGE
+      case 'INSUFFICIENT_STOCK':
+        return insufficientStockMessage(
+          typeof error.available === 'number' ? String(error.available) : '0',
+        )
       default:
         break
     }

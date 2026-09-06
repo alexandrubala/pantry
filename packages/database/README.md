@@ -26,6 +26,8 @@ Commands from the repo root. Wrangler config is `apps/web/wrangler.jsonc`.
 
 `0004_households.sql` creates `households`, `household_members`, and `locations`, then adds `profiles.active_household_id` → `households(id)` `ON DELETE SET NULL` via `ALTER TABLE ADD COLUMN`. Invitations are deferred.
 
+`0005_inventory_mvp.sql` creates `products`, `inventory_lots`, `inventory_history`, `inventory_settings`, and `inventory_conflict_abort` (a persistence-only CHECK guard used to abort stale consumption batches).
+
 D1 adapters live in `adapters/d1/` and implement `@pantry/core` ports. They must not be imported from `packages/core`.
 
 ## Portability

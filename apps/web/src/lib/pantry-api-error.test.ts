@@ -5,16 +5,28 @@ import {
   HOUSEHOLD_NAME_INVALID_MESSAGE,
   LOCATION_NAME_TAKEN_MESSAGE,
   NETWORK_PANTRY_FAILURE_MESSAGE,
+  PRODUCT_NAME_INVALID_MESSAGE,
+  STOCK_CONFLICT_MESSAGE,
+  insufficientStockMessage,
   mapPantryApiError,
 } from './pantry-api-error'
 
-test('maps household and location API codes to Romanian copy', () => {
+test('maps household, location, and inventory API codes to Romanian copy', () => {
   expect(mapPantryApiError(new PantryApiError(400, 'Invalid household name', 'INVALID_HOUSEHOLD_NAME'))).toBe(
     HOUSEHOLD_NAME_INVALID_MESSAGE,
   )
   expect(mapPantryApiError(new PantryApiError(409, 'Location name already exists', 'LOCATION_NAME_TAKEN'))).toBe(
     LOCATION_NAME_TAKEN_MESSAGE,
   )
+  expect(mapPantryApiError(new PantryApiError(400, 'Invalid product name', 'INVALID_PRODUCT_NAME'))).toBe(
+    PRODUCT_NAME_INVALID_MESSAGE,
+  )
+  expect(mapPantryApiError(new PantryApiError(409, 'STOCK_CONFLICT', 'STOCK_CONFLICT'))).toBe(
+    STOCK_CONFLICT_MESSAGE,
+  )
+  expect(
+    mapPantryApiError(new PantryApiError(409, 'INSUFFICIENT_STOCK', 'INSUFFICIENT_STOCK', 100)),
+  ).toBe(insufficientStockMessage('100'))
 })
 
 test('maps network failures without exposing backend strings', () => {

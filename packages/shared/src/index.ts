@@ -1,4 +1,4 @@
-export { UNITS, type Unit } from './types'
-export { isUnit } from './units'
-export * from './nutrition'
-export * from './validation'
+export { UNITS, type Unit } from './types/index.js'
+export { isUnit } from './units/index.js'
+export * from './nutrition/index.js'
+export * from './validation/index.js'

@@ -10,6 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@pantry/shared": "workspace:*"
+  },
   "devDependencies": {
     "typescript": "~6.0.2",
     "vitest": "^5.0.0"

@@ -4,6 +4,21 @@ import { fileURLToPath } from 'node:url'
 import { DatabaseSync } from 'node:sqlite'
 import type { D1DatabaseLike, D1PreparedStatementLike } from './d1-like.js'
 
+const writeQueues = new WeakMap<object, Promise<void>>()
+
+function enqueueWrite<T>(db: object, work: () => Promise<T>): Promise<T> {
+  const previous = writeQueues.get(db) ?? Promise.resolve()
+  const current = previous.then(work, work)
+  writeQueues.set(
+    db,
+    current.then(
+      () => undefined,
+      () => undefined,
+    ),
+  )
+  return current
+}
+
 export function migrationsDir(): string {
   return join(dirname(fileURLToPath(import.meta.url)), '../../migrations')
 }
@@ -13,6 +28,7 @@ export function applyPantryMigrations(db: DatabaseSync): void {
   db.exec(readFileSync(join(migrationsDir(), '0002_better_auth.sql'), 'utf8'))
   db.exec(readFileSync(join(migrationsDir(), '0003_profiles.sql'), 'utf8'))
   db.exec(readFileSync(join(migrationsDir(), '0004_households.sql'), 'utf8'))
+  db.exec(readFileSync(join(migrationsDir(), '0005_inventory_mvp.sql'), 'utf8'))
 }
 
 export function sqliteAsD1(db: DatabaseSync): D1DatabaseLike {
@@ -39,18 +55,20 @@ export function sqliteAsD1(db: DatabaseSync): D1DatabaseLike {
       return statement
     },
     async batch(statements) {
-      db.exec('BEGIN')
-      try {
-        const results = []
-        for (const statement of statements) {
-          results.push(await statement.run())
+      return enqueueWrite(db, async () => {
+        db.exec('BEGIN')
+        try {
+          const results = []
+          for (const statement of statements) {
+            results.push(await statement.run())
+          }
+          db.exec('COMMIT')
+          return results
+        } catch (error) {
+          db.exec('ROLLBACK')
+          throw error
         }
-        db.exec('COMMIT')
-        return results
-      } catch (error) {
-        db.exec('ROLLBACK')
-        throw error
-      }
+      })
     },
   }
 }

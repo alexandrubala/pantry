@@ -1,12 +1,14 @@
 export class PantryApiError extends Error {
   readonly status: number
   readonly code: string | null
+  readonly available: number | null
 
-  constructor(status: number, error: string, code: string | null) {
+  constructor(status: number, error: string, code: string | null, available: number | null = null) {
     super(error)
     this.name = 'PantryApiError'
     this.status = status
     this.code = code
+    this.available = available
   }
 }
 
@@ -25,6 +27,7 @@ function readRecord(value: unknown): Record<string, unknown> | null {
 async function parseError(response: Response): Promise<PantryApiError> {
   let code: string | null = null
   let error = 'Request failed'
+  let available: number | null = null
 
   try {
     const body: unknown = await response.json()
@@ -35,11 +38,14 @@ async function parseError(response: Response): Promise<PantryApiError> {
     if (record && typeof record.code === 'string' && record.code.length > 0) {
       code = record.code
     }
+    if (record && typeof record.available === 'number' && Number.isFinite(record.available)) {
+      available = record.available
+    }
   } catch {
     error = response.statusText || error
   }
 
-  return new PantryApiError(response.status, error, code)
+  return new PantryApiError(response.status, error, code, available)
 }
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {

@@ -2,7 +2,9 @@ import { Hono } from 'hono'
 import { createAuth } from './auth/auth.js'
 import { health } from './routes/health.js'
 import { households } from './routes/households.js'
+import { inventory } from './routes/inventory.js'
 import { locations } from './routes/locations.js'
+import { products } from './routes/products.js'
 import { profile } from './routes/profile.js'
 
 const app = new Hono<{ Bindings: CloudflareBindings }>()
@@ -11,6 +13,8 @@ app.route('/api/v1', health)
 app.route('/api/v1', profile)
 app.route('/api/v1', households)
 app.route('/api/v1', locations)
+app.route('/api/v1', products)
+app.route('/api/v1', inventory)
 
 app.all('/api/auth/*', (c) => createAuth(c.env).handler(c.req.raw))
 

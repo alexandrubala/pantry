@@ -4,6 +4,20 @@ import { DatabaseSync } from 'node:sqlite'
 
 const TEST_SECRET = 'test-secret-at-least-32-characters-long'
 const TEST_URL = 'http://localhost:5173'
+const writeQueues = new WeakMap<object, Promise<void>>()
+
+function enqueueWrite<T>(db: object, work: () => Promise<T>): Promise<T> {
+  const previous = writeQueues.get(db) ?? Promise.resolve()
+  const current = previous.then(work, work)
+  writeQueues.set(
+    db,
+    current.then(
+      () => undefined,
+      () => undefined,
+    ),
+  )
+  return current
+}
 
 export function migrationsDir() {
   return join(process.cwd(), '../../packages/database/migrations')
@@ -33,18 +47,20 @@ export function sqliteAsD1(db: DatabaseSync): D1Database {
       return statement
     },
     async batch(statements: Array<{ run: () => Promise<unknown> }>) {
-      db.exec('BEGIN')
-      try {
-        const results = []
-        for (const statement of statements) {
-          results.push(await statement.run())
+      return enqueueWrite(db, async () => {
+        db.exec('BEGIN')
+        try {
+          const results = []
+          for (const statement of statements) {
+            results.push(await statement.run())
+          }
+          db.exec('COMMIT')
+          return results
+        } catch (error) {
+          db.exec('ROLLBACK')
+          throw error
         }
-        db.exec('COMMIT')
-        return results
-      } catch (error) {
-        db.exec('ROLLBACK')
-        throw error
-      }
+      })
     },
   } as D1Database
 }
@@ -55,6 +71,7 @@ export function openPantryDb() {
   db.exec(readFileSync(join(migrationsDir(), '0002_better_auth.sql'), 'utf8'))
   db.exec(readFileSync(join(migrationsDir(), '0003_profiles.sql'), 'utf8'))
   db.exec(readFileSync(join(migrationsDir(), '0004_households.sql'), 'utf8'))
+  db.exec(readFileSync(join(migrationsDir(), '0005_inventory_mvp.sql'), 'utf8'))
   return db
 }
 
