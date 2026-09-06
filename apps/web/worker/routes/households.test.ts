@@ -253,3 +253,72 @@ test('GET /api/v1/household returns null when the user has no household', async 
   expect(res.status).toBe(200)
   await expect(res.json()).resolves.toEqual({ household: null })
 })
+
+test('PATCH /api/v1/household requires auth', async () => {
+  const res = await app.request(
+    '/api/v1/household',
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Casa Bala' }),
+    },
+    envWithDb(openPantryDb()),
+  )
+  expect(res.status).toBe(401)
+})
+
+test('PATCH /api/v1/household renames in place for the owner only', async () => {
+  const db = openPantryDb()
+  insertUser(db, 'user-1', 'Alex', 'alex@example.invalid')
+  insertUser(db, 'user-2', 'Maria', 'maria@example.invalid')
+  insertProfile(db, 'user-1', 'Alex')
+  insertProfile(db, 'user-2', 'Maria')
+  resolveCurrentUserMock.mockResolvedValue({ id: 'user-1', name: 'Alex' })
+  const createdRes = await app.request(
+    '/api/v1/households',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Casa mea' }),
+    },
+    envWithDb(db),
+  )
+  expect(createdRes.status).toBe(201)
+  const created = (await createdRes.json()) as { household: { id: string } }
+
+  db.prepare(
+    `INSERT INTO household_members (household_id, user_id, role, created_at)
+     VALUES (?, 'user-2', 'member', datetime('now'))`,
+  ).run(created.household.id)
+  db.prepare(`UPDATE profiles SET active_household_id = ? WHERE id = 'user-2'`).run(created.household.id)
+
+  const renamed = await app.request(
+    '/api/v1/household',
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Casa Bala' }),
+    },
+    envWithDb(db),
+  )
+  expect(renamed.status).toBe(200)
+  const body = await renamed.json()
+  expect(body.household).toEqual({ id: created.household.id, name: 'Casa Bala', role: 'owner' })
+  expect(db.prepare('SELECT COUNT(*) AS n FROM households').get()).toEqual({ n: 1 })
+  expect(db.prepare('SELECT COUNT(*) AS n FROM household_members').get()).toEqual({ n: 2 })
+
+  resolveCurrentUserMock.mockResolvedValue({ id: 'user-2', name: 'Maria' })
+  const forbidden = await app.request(
+    '/api/v1/household',
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Casa Maria' }),
+    },
+    envWithDb(db),
+  )
+  expect(forbidden.status).toBe(403)
+  expect(db.prepare('SELECT name FROM households WHERE id = ?').get(created.household.id)).toEqual({
+    name: 'Casa Bala',
+  })
+})

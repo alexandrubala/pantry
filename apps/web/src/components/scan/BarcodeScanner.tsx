@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { validateBarcode } from '@pantry/core'
+import { Flashlight, X } from 'lucide-react'
 import {
   cameraErrorMessage,
   classifyCameraError,
   openRearCamera,
+  queryCameraPermission,
   setVideoTrackTorch,
+  shouldRequestCamera,
   stopMediaStream,
   videoTrackSupportsTorch,
   type CameraErrorReason,
@@ -37,11 +40,25 @@ export function BarcodeScanner({
   const detectedRef = useRef(false)
   const onDetectedRef = useRef(onDetected)
   onDetectedRef.current = onDetected
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
   const [error, setError] = useState<CameraErrorReason | null>(null)
   const [retryKey, setRetryKey] = useState(0)
   const [torchOn, setTorchOn] = useState(false)
   const [torchAvailable, setTorchAvailable] = useState(false)
   const torchTrackRef = useRef<MediaStreamTrack | null>(null)
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onCloseRef.current()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   useEffect(() => {
     const video = videoRef.current
@@ -155,6 +172,14 @@ export function BarcodeScanner({
         return
       }
 
+      const permission = await queryCameraPermission()
+      if (!shouldRequestCamera(permission)) {
+        if (!cancelled) {
+          setError('denied')
+        }
+        return
+      }
+
       try {
         stream = await openRearCamera()
       } catch (cause) {
@@ -185,6 +210,7 @@ export function BarcodeScanner({
 
       const track = stream.getVideoTracks()[0]
       torchTrackRef.current = track ?? null
+      setTorchOn(false)
       setTorchAvailable(videoTrackSupportsTorch(track))
 
       const selection = await selectBarcodeScanner(
@@ -219,21 +245,22 @@ export function BarcodeScanner({
 
   async function toggleTorch() {
     const track = torchTrackRef.current
-    if (!track || !videoTrackSupportsTorch(track)) {
+    if (!track) {
       return
     }
 
-    const next = !torchOn
-    try {
-      await setVideoTrackTorch(track, next)
-      setTorchOn(next)
-    } catch {
-      setTorchAvailable(false)
+    const result = await setVideoTrackTorch(track, !torchOn)
+    if (result.ok) {
+      setTorchOn(result.on)
+      return
     }
+
+    setTorchOn(false)
+    setTorchAvailable(false)
   }
 
   return (
-    <div className="fixed inset-0 z-20 bg-black text-white">
+    <div className="fixed inset-0 z-40 bg-black text-white">
       <video
         ref={videoRef}
         className="h-full w-full object-cover"
@@ -243,34 +270,12 @@ export function BarcodeScanner({
       />
       <div className="pointer-events-none absolute inset-0 bg-black/25" />
 
-      <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 px-4 pt-[max(1rem,env(safe-area-inset-top,0px))]">
-        <button
-          type="button"
-          onClick={onClose}
-          className="pointer-events-auto flex min-h-touch items-center rounded-lg bg-black/55 px-3 text-sm font-medium"
-        >
-          Închide
-        </button>
-        {torchAvailable ? (
-          <button
-            type="button"
-            onClick={() => void toggleTorch()}
-            className="pointer-events-auto flex min-h-touch items-center rounded-lg bg-black/55 px-3 text-sm font-medium"
-            aria-pressed={torchOn}
-          >
-            Lanternă
-          </button>
-        ) : (
-          <span />
-        )}
-      </div>
-
-      <div className="absolute inset-0 flex flex-col items-center justify-center px-8">
+      <div className="pointer-events-none absolute inset-0 z-[1] flex flex-col items-center justify-center px-8">
         <div className="h-24 w-full max-w-sm rounded-2xl border-2 border-white/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
         <p className="mt-4 text-center text-sm font-medium">Centrează codul de bare în chenar</p>
         <p className="mt-1 text-center text-sm text-white/80">Ține telefonul la 10–20 cm de cod.</p>
         {error ? <p className="mt-3 text-center text-sm text-white/90">{cameraErrorMessage(error)}</p> : null}
-        {error === 'permission' || error === 'in-use' || error === 'failed' ? (
+        {error === 'permission' || error === 'denied' || error === 'in-use' || error === 'failed' ? (
           <button
             type="button"
             className="pointer-events-auto mt-3 rounded-lg bg-white/90 px-3 py-2 text-sm font-medium text-black"
@@ -284,7 +289,29 @@ export function BarcodeScanner({
         ) : null}
       </div>
 
-      <div className="absolute inset-x-0 bottom-0 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))]">
+      <div className="absolute inset-x-0 top-0 z-50 flex items-start justify-between gap-3 px-4 pt-[max(1rem,env(safe-area-inset-top,0px))]">
+        <button
+          type="button"
+          onClick={onClose}
+          className="pointer-events-auto flex min-h-[44px] min-w-[44px] items-center gap-2 rounded-lg bg-black/70 px-3 text-sm font-medium"
+        >
+          <X className="size-5" aria-hidden="true" />
+          Închide
+        </button>
+        {torchAvailable ? (
+          <button
+            type="button"
+            onClick={() => void toggleTorch()}
+            className="pointer-events-auto flex min-h-[44px] items-center gap-2 rounded-lg bg-black/70 px-3 text-sm font-medium"
+            aria-pressed={torchOn}
+          >
+            <Flashlight className="size-4" aria-hidden="true" />
+            {torchOn ? 'Lanternă pornită' : 'Lanternă'}
+          </button>
+        ) : null}
+      </div>
+
+      <div className="absolute inset-x-0 bottom-0 z-50 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))]">
         <button
           type="button"
           onClick={onManual}

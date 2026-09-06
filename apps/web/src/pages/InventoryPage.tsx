@@ -8,13 +8,12 @@ import {
   LotsSheet,
   MinimumStockSheet,
 } from '../components/inventory/InventoryDailySheets'
+import { ConsumeSheet } from '../components/inventory/ConsumeSheet'
 import { InventoryProductCard } from '../components/inventory/InventoryProductCard'
 import { InventorySheet } from '../components/inventory/InventorySheet'
 import { useHousehold } from '../household/HouseholdProvider'
-import { isPantryApiError } from '../lib/api'
 import {
   attentionCards,
-  formatQuantity,
   itemMatchesStatusFilter,
   localIsoDate,
   quickAddLot,
@@ -24,7 +23,6 @@ import {
 import {
   QUANTITY_INVALID_MESSAGE,
   PRODUCT_NAME_INVALID_MESSAGE,
-  insufficientStockMessage,
   mapPantryApiError,
 } from '../lib/pantry-api-error'
 import { addStock, addShoppingProductItem, consumeStock, createProduct, getInventory, getInventorySummary } from '../lib/pantry-api'
@@ -835,89 +833,6 @@ function AddStockSheet({
         >
           {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
           {isSubmitting ? 'Se salvează...' : 'Adaugă stoc'}
-        </button>
-      </form>
-    </InventorySheet>
-  )
-}
-
-function ConsumeSheet({
-  item,
-  onClose,
-  onSaved,
-}: {
-  item: InventoryItem
-  onClose: () => void
-  onSaved: () => Promise<void>
-}) {
-  const quantityId = useId()
-  const [quantity, setQuantity] = useState('')
-  const [formError, setFormError] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (isSubmitting) {
-      return
-    }
-
-    setFormError(null)
-    let parsedQuantity: number
-    try {
-      parsedQuantity = validateQuantity(Number(quantity.replace(',', '.')))
-    } catch {
-      setFormError(QUANTITY_INVALID_MESSAGE)
-      return
-    }
-
-    setIsSubmitting(true)
-    try {
-      await consumeStock({ productId: item.product.id, quantity: parsedQuantity })
-      await onSaved()
-    } catch (cause) {
-      if (isPantryApiError(cause) && cause.code === 'INSUFFICIENT_STOCK') {
-        const available = cause.available ?? item.totalQuantity
-        setFormError(insufficientStockMessage(formatQuantity(available, item.product.unit)))
-      } else {
-        setFormError(mapPantryApiError(cause))
-      }
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  return (
-    <InventorySheet title={`Consumă · ${item.product.name}`} onClose={onClose}>
-      <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
-        <div>
-          <label className="text-sm font-medium" htmlFor={quantityId}>
-            Cantitate de consumat
-          </label>
-          <input
-            id={quantityId}
-            inputMode="decimal"
-            value={quantity}
-            onChange={(event) => setQuantity(event.target.value)}
-            disabled={isSubmitting}
-            required
-            className={fieldClassName}
-            placeholder={`250 ${unitLabel(item.product.unit)}`}
-          />
-          <p className="mt-1 text-sm text-muted">
-            Disponibil: {formatQuantity(item.totalQuantity, item.product.unit)}
-          </p>
-        </div>
-        <div role="alert" aria-live="assertive" className="min-h-5 text-sm text-destructive">
-          {formError}
-        </div>
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          aria-busy={isSubmitting}
-          className="flex h-touch min-h-touch w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-accent-foreground shadow-surface disabled:opacity-60"
-        >
-          {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-          {isSubmitting ? 'Se consumă...' : 'Consumă'}
         </button>
       </form>
     </InventorySheet>

@@ -6,6 +6,7 @@ interface __BaseEnv_CloudflareBindings {
 	DB: D1Database;
 	AI: Ai;
 	AI_MODEL: "@cf/meta/llama-4-scout-17b-16e-instruct";
+	RECEIPT_AI_MODEL: "@cf/google/gemma-4-26b-a4b-it";
 	BETTER_AUTH_SECRET: string;
 	BETTER_AUTH_URL: string;
 }
@@ -20,7 +21,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "AI_MODEL" | "BETTER_AUTH_SECRET" | "BETTER_AUTH_URL">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "AI_MODEL" | "RECEIPT_AI_MODEL" | "BETTER_AUTH_SECRET" | "BETTER_AUTH_URL">> {}
 }
 
 // Begin runtime types

@@ -10,11 +10,13 @@ import {
   type Unit,
 } from '@pantry/core'
 import { LoaderCircle } from 'lucide-react'
-import { useId, useState, type FormEvent } from 'react'
+import { useEffect, useId, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { InventorySheet } from '../components/inventory/InventorySheet'
 import { BarcodeScanner } from '../components/scan/BarcodeScanner'
 import { ProductImage } from '../components/scan/ProductImage'
+import { ReceiptCapture } from '../components/scan/ReceiptCapture'
+import { ReceiptReview } from '../components/scan/ReceiptReview'
 import { useHousehold } from '../household/HouseholdProvider'
 import { isPantryApiError } from '../lib/api'
 import { formatKcal100g, formatMacroLine, unitLabel } from '../lib/inventory-format'
@@ -27,9 +29,11 @@ import {
 import {
   addStock,
   createProduct,
+  getProducts,
   importBarcode,
   lookupBarcode,
   type ExternalBarcodeProduct,
+  type ReceiptExtractResponse,
 } from '../lib/pantry-api'
 
 const fieldClassName =
@@ -45,6 +49,8 @@ const UNIT_OPTIONS: Array<{ value: Unit; label: string }> = [
 type ScanView =
   | { phase: 'idle' }
   | { phase: 'camera' }
+  | { phase: 'receipt' }
+  | { phase: 'receipt-review'; draft: ReceiptExtractResponse['receipt'] }
   | { phase: 'lookup'; barcode: string }
   | { phase: 'existing'; barcode: string; product: ProductRecord }
   | { phase: 'external'; barcode: string; product: ExternalBarcodeProduct; importedId?: string }
@@ -54,8 +60,30 @@ type ScanView =
 export function ScanPage() {
   const navigate = useNavigate()
   const { locations } = useHousehold()
-  const [view, setView] = useState<ScanView>({ phase: 'camera' })
+  const [view, setView] = useState<ScanView>({ phase: 'idle' })
   const [manualOpen, setManualOpen] = useState(false)
+  const [products, setProducts] = useState<ProductRecord[]>([])
+
+  useEffect(() => {
+    if (view.phase !== 'camera' && view.phase !== 'receipt') {
+      return
+    }
+
+    window.history.pushState({ pantryScan: view.phase }, '')
+    function onPopState() {
+      setView({ phase: 'idle' })
+      setManualOpen(false)
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [view.phase])
+
+  function closeScanner() {
+    setView({ phase: 'idle' })
+    if (window.history.state && typeof window.history.state === 'object' && 'pantryScan' in window.history.state) {
+      window.history.back()
+    }
+  }
 
   async function lookup(barcode: string) {
     setView({ phase: 'lookup', barcode })
@@ -86,9 +114,9 @@ export function ScanPage() {
       {view.phase === 'camera' ? (
         <BarcodeScanner
           onDetected={(barcode) => void lookup(barcode)}
-          onClose={() => setView({ phase: 'idle' })}
+          onClose={closeScanner}
           onManual={() => {
-            setView({ phase: 'idle' })
+            closeScanner()
             setManualOpen(true)
           }}
         />
@@ -97,7 +125,28 @@ export function ScanPage() {
       {view.phase === 'idle' ? (
         <IdleScan
           onScan={() => setView({ phase: 'camera' })}
+          onReceipt={() => setView({ phase: 'receipt' })}
           onManual={() => setManualOpen(true)}
+        />
+      ) : null}
+
+      {view.phase === 'receipt' ? (
+        <ReceiptCapture
+          onClose={closeScanner}
+          onExtracted={(draft) => {
+            setView({ phase: 'receipt-review', draft })
+            void getProducts().then((data) => setProducts(data.products)).catch(() => undefined)
+          }}
+        />
+      ) : null}
+
+      {view.phase === 'receipt-review' ? (
+        <ReceiptReview
+          draft={view.draft}
+          locations={locations}
+          products={products}
+          onClose={() => setView({ phase: 'idle' })}
+          onDone={() => void navigate('/inventory')}
         />
       ) : null}
 
@@ -167,17 +216,32 @@ export function ScanPage() {
   )
 }
 
-function IdleScan({ onScan, onManual }: { onScan: () => void; onManual: () => void }) {
+function IdleScan({
+  onScan,
+  onReceipt,
+  onManual,
+}: {
+  onScan: () => void
+  onReceipt: () => void
+  onManual: () => void
+}) {
   return (
     <div>
       <h1 className="text-2xl font-semibold tracking-tight">Scan</h1>
-      <p className="mt-2 text-muted">Centrează un cod de bare sau introdu-l manual.</p>
+      <p className="mt-2 text-muted">Scanează un cod de bare sau un bon. Camera se deschide doar când apeși un buton.</p>
       <button
         type="button"
         onClick={onScan}
         className="mt-6 flex h-touch min-h-touch w-full items-center justify-center rounded-lg bg-accent px-4 text-sm font-medium text-accent-foreground"
       >
-        Scanează din nou
+        Scanează cod de bare
+      </button>
+      <button
+        type="button"
+        onClick={onReceipt}
+        className="mt-3 flex h-touch min-h-touch w-full items-center justify-center rounded-lg border border-border px-4 text-sm font-medium"
+      >
+        Scanează bon
       </button>
       <button
         type="button"

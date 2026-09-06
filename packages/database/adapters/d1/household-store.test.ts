@@ -173,3 +173,129 @@ test('deleting a user cascades membership but not the household', () => {
   expect(sqlite.prepare('SELECT COUNT(*) AS n FROM households').get()).toEqual({ n: 1 })
   expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
 })
+
+test('renameHousehold updates the same row and leaves members attached', async () => {
+  const { sqlite, store } = openStore()
+  seedUser(sqlite, 'user-1', 'alex@example.invalid')
+  const created = await store.createHouseholdWithOwnerAndLocations({
+    userId: 'user-1',
+    name: 'Casa mea',
+    ownerDisplayName: 'Alex',
+  })
+
+  const renamed = await store.renameHousehold({ householdId: created.household.id, name: 'Casa Bala' })
+  expect(renamed).toEqual({ id: created.household.id, name: 'Casa Bala' })
+  expect(sqlite.prepare('SELECT COUNT(*) AS n FROM households').get()).toEqual({ n: 1 })
+  expect(sqlite.prepare('SELECT COUNT(*) AS n FROM household_members').get()).toEqual({ n: 1 })
+  expect(sqlite.prepare('SELECT COUNT(*) AS n FROM locations WHERE is_active = 1').get()).toEqual({ n: 7 })
+  expect((await store.getActiveHousehold('user-1'))?.name).toBe('Casa Bala')
+})
+
+test('renameLocation keeps the same id and rejects duplicate active names', async () => {
+  const { sqlite, store } = openStore()
+  seedUser(sqlite, 'user-1', 'alex@example.invalid')
+  const created = await store.createHouseholdWithOwnerAndLocations({
+    userId: 'user-1',
+    name: 'Casa mea',
+    ownerDisplayName: 'Alex',
+  })
+  const pantry = created.locations.find((location) => location.name === 'Cămară')
+  if (!pantry) {
+    throw new Error('missing Cămară')
+  }
+
+  const renamed = await store.renameLocation({
+    householdId: created.household.id,
+    locationId: pantry.id,
+    name: 'Debara',
+  })
+  expect(renamed.id).toBe(pantry.id)
+  expect(renamed.name).toBe('Debara')
+
+  await expect(
+    store.renameLocation({
+      householdId: created.household.id,
+      locationId: pantry.id,
+      name: 'Frigider',
+    }),
+  ).rejects.toMatchObject({ code: 'LOCATION_NAME_TAKEN' })
+})
+
+test('deactivateLocation rejects non-empty and last locations', async () => {
+  const { sqlite, store } = openStore()
+  seedUser(sqlite, 'user-1', 'alex@example.invalid')
+  const created = await store.createHouseholdWithOwnerAndLocations({
+    userId: 'user-1',
+    name: 'Casa mea',
+    ownerDisplayName: 'Alex',
+  })
+  const extra = await store.createLocation({ householdId: created.household.id, name: 'Beci' })
+  const fridge = created.locations.find((location) => location.name === 'Frigider')
+  if (!fridge) {
+    throw new Error('missing Frigider')
+  }
+
+  sqlite
+    .prepare(
+      `INSERT INTO products (id, household_id, name, normalized_name, brand, default_unit, source, created_at, updated_at)
+       VALUES ('prod-1', ?, 'Lapte', 'lapte', NULL, 'ml', 'manual', datetime('now'), datetime('now'))`,
+    )
+    .run(created.household.id)
+  sqlite
+    .prepare(
+      `INSERT INTO inventory_lots (
+         id, household_id, product_id, location_id, quantity, expires_on, expires_key, created_at, updated_at
+       ) VALUES ('lot-1', ?, 'prod-1', ?, 1000, NULL, '', datetime('now'), datetime('now'))`,
+    )
+    .run(created.household.id, fridge.id)
+
+  await expect(
+    store.deactivateLocation({ householdId: created.household.id, locationId: fridge.id }),
+  ).rejects.toMatchObject({ code: 'LOCATION_NOT_EMPTY' })
+
+  await store.deactivateLocation({ householdId: created.household.id, locationId: extra.id })
+  expect(
+    (await store.listActiveLocations(created.household.id)).some((location) => location.id === extra.id),
+  ).toBe(false)
+
+  sqlite.prepare(`DELETE FROM inventory_lots WHERE id = 'lot-1'`).run()
+
+  const leftovers = await store.listActiveLocations(created.household.id)
+  for (const location of leftovers.slice(1)) {
+    await store.deactivateLocation({ householdId: created.household.id, locationId: location.id })
+  }
+  await expect(
+    store.deactivateLocation({ householdId: created.household.id, locationId: leftovers[0]!.id }),
+  ).rejects.toMatchObject({ code: 'LAST_LOCATION' })
+})
+
+test('location writes stay isolated across households', async () => {
+  const { sqlite, store } = openStore()
+  seedUser(sqlite, 'user-a', 'a@example.invalid')
+  seedUser(sqlite, 'user-b', 'b@example.invalid')
+  const householdA = await store.createHouseholdWithOwnerAndLocations({
+    userId: 'user-a',
+    name: 'Casa A',
+    ownerDisplayName: 'A',
+  })
+  const householdB = await store.createHouseholdWithOwnerAndLocations({
+    userId: 'user-b',
+    name: 'Casa B',
+    ownerDisplayName: 'B',
+  })
+  const pantryB = householdB.locations.find((location) => location.name === 'Cămară')
+  if (!pantryB) {
+    throw new Error('missing Cămară')
+  }
+
+  await expect(
+    store.renameLocation({
+      householdId: householdA.household.id,
+      locationId: pantryB.id,
+      name: 'Debara',
+    }),
+  ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+  expect((await store.getLocation({ householdId: householdB.household.id, locationId: pantryB.id }))?.name).toBe(
+    'Cămară',
+  )
+})

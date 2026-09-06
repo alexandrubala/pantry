@@ -42,4 +42,8 @@ export type HouseholdStore = {
   setActiveHousehold(userId: string, householdId: string): Promise<void>
   listActiveLocations(householdId: string): Promise<LocationRecord[]>
   createLocation(input: { householdId: string; name: string }): Promise<LocationRecord>
+  renameHousehold(input: { householdId: string; name: string }): Promise<{ id: string; name: string }>
+  getLocation(input: { householdId: string; locationId: string }): Promise<LocationRecord | null>
+  renameLocation(input: { householdId: string; locationId: string; name: string }): Promise<LocationRecord>
+  deactivateLocation(input: { householdId: string; locationId: string }): Promise<void>
 }

@@ -1,4 +1,4 @@
-import { CircleUser, LoaderCircle, LogOut, Users } from 'lucide-react'
+import { CircleUser, LoaderCircle, LogOut, Settings, Users } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useHousehold } from '../household/HouseholdProvider'
@@ -134,18 +134,32 @@ export function AccountMenu() {
             </div>
           ) : null}
           {household ? (
-            <button
-              type="button"
-              className="mt-3 flex h-touch min-h-touch w-full items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-text"
-              disabled={isSigningOut}
-              onClick={() => {
-                setOpen(false)
-                void navigate('/household')
-              }}
-            >
-              <Users className="size-4" aria-hidden="true" />
-              Membri și acces
-            </button>
+            <>
+              <button
+                type="button"
+                className="mt-3 flex h-touch min-h-touch w-full items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-text"
+                disabled={isSigningOut}
+                onClick={() => {
+                  setOpen(false)
+                  void navigate('/settings')
+                }}
+              >
+                <Settings className="size-4" aria-hidden="true" />
+                Setări
+              </button>
+              <button
+                type="button"
+                className="mt-3 flex h-touch min-h-touch w-full items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-text"
+                disabled={isSigningOut}
+                onClick={() => {
+                  setOpen(false)
+                  void navigate('/household')
+                }}
+              >
+                <Users className="size-4" aria-hidden="true" />
+                Membri și acces
+              </button>
+            </>
           ) : null}
           <button
             type="button"

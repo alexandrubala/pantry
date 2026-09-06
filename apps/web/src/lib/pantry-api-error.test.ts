@@ -4,6 +4,9 @@ import {
   GENERIC_PANTRY_FAILURE_MESSAGE,
   HOUSEHOLD_NAME_INVALID_MESSAGE,
   LOCATION_NAME_TAKEN_MESSAGE,
+  LOCATION_NOT_EMPTY_MESSAGE,
+  LAST_LOCATION_MESSAGE,
+  RECEIPT_NO_ITEMS_MESSAGE,
   NETWORK_PANTRY_FAILURE_MESSAGE,
   PRODUCT_NAME_INVALID_MESSAGE,
   PRODUCT_NOT_FOUND_MESSAGE,
@@ -27,6 +30,13 @@ test('maps household, location, and inventory API codes to Romanian copy', () =>
   )
   expect(mapPantryApiError(new PantryApiError(409, 'Location name already exists', 'LOCATION_NAME_TAKEN'))).toBe(
     LOCATION_NAME_TAKEN_MESSAGE,
+  )
+  expect(mapPantryApiError(new PantryApiError(409, 'LOCATION_NOT_EMPTY', 'LOCATION_NOT_EMPTY'))).toBe(
+    LOCATION_NOT_EMPTY_MESSAGE,
+  )
+  expect(mapPantryApiError(new PantryApiError(409, 'LAST_LOCATION', 'LAST_LOCATION'))).toBe(LAST_LOCATION_MESSAGE)
+  expect(mapPantryApiError(new PantryApiError(422, 'RECEIPT_NO_ITEMS', 'RECEIPT_NO_ITEMS'))).toBe(
+    RECEIPT_NO_ITEMS_MESSAGE,
   )
   expect(mapPantryApiError(new PantryApiError(400, 'Invalid product name', 'INVALID_PRODUCT_NAME'))).toBe(
     PRODUCT_NAME_INVALID_MESSAGE,

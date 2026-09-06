@@ -96,3 +96,74 @@ locations.post('/locations', async (c) => {
     throw error
   }
 })
+
+locations.patch('/locations/:id', async (c) => {
+  const user = await requireAuth(c.env, c.req.raw)
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
+  await ensureProfile(c.env.DB, user)
+
+  const locationId = c.req.param('id')?.trim()
+  if (!locationId) {
+    return c.json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  let payload: unknown
+  try {
+    payload = await c.req.json()
+  } catch {
+    return c.json({ error: 'Invalid location name', code: 'INVALID_LOCATION_NAME' }, 400)
+  }
+
+  const body = readJsonObject(payload)
+  if (!body || typeof body.name !== 'string') {
+    return c.json({ error: 'Invalid location name', code: 'INVALID_LOCATION_NAME' }, 400)
+  }
+
+  try {
+    const { store, household } = await requireActiveHousehold(c.env, user.id)
+    const location = await store.renameLocation({
+      householdId: household.id,
+      locationId,
+      name: body.name,
+    })
+    return c.json({ location })
+  } catch (error) {
+    if (isDomainError(error)) {
+      const mapped = domainResponse(error)
+      return c.json(mapped.body, mapped.status)
+    }
+    throw error
+  }
+})
+
+locations.delete('/locations/:id', async (c) => {
+  const user = await requireAuth(c.env, c.req.raw)
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
+  await ensureProfile(c.env.DB, user)
+
+  const locationId = c.req.param('id')?.trim()
+  if (!locationId) {
+    return c.json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  try {
+    const { store, household } = await requireActiveHousehold(c.env, user.id)
+    await store.deactivateLocation({
+      householdId: household.id,
+      locationId,
+    })
+    return c.body(null, 204)
+  } catch (error) {
+    if (isDomainError(error)) {
+      const mapped = domainResponse(error)
+      return c.json(mapped.body, mapped.status)
+    }
+    throw error
+  }
+})

@@ -35,6 +35,15 @@ export const OWNER_CANNOT_REMOVE_SELF_MESSAGE = 'Nu poți să te elimini din cas
 export const INVITE_EXPIRED_MESSAGE = 'Invitația a expirat.'
 export const INVITE_REVOKED_MESSAGE = 'Invitația a fost anulată.'
 export const INVITE_ALREADY_ACCEPTED_MESSAGE = 'Invitația a fost deja folosită.'
+export const LOCATION_NOT_EMPTY_MESSAGE =
+  'Mută sau consumă stocul din această locație înainte să o elimini.'
+export const LAST_LOCATION_MESSAGE = 'Trebuie să rămână cel puțin o locație activă.'
+export const RECEIPT_IMAGE_TOO_LARGE_MESSAGE =
+  'Imaginea e prea mare. Fă o poză mai apropiată sau alege o imagine mai mică.'
+export const RECEIPT_IMAGE_INVALID_MESSAGE = 'Alege o imagine JPEG, PNG sau WebP a bonului.'
+export const RECEIPT_NO_ITEMS_MESSAGE = 'Nu am găsit produse pe acest bon. Încearcă o poză mai clară.'
+export const RECEIPT_EXTRACTION_FAILED_MESSAGE = 'Nu am putut citi bonul. Încearcă din nou.'
+export const RECEIPT_RATE_LIMIT_MESSAGE = 'Ai atins limita de scanări de bonuri pe oră. Încearcă mai târziu.'
 
 export function insufficientStockMessage(availableLabel: string): string {
   return `Nu ai suficient stoc. Disponibil: ${availableLabel}`
@@ -66,6 +75,10 @@ export function mapPantryApiError(error: unknown): string {
         return LOCATION_NAME_INVALID_MESSAGE
       case 'LOCATION_NAME_TAKEN':
         return LOCATION_NAME_TAKEN_MESSAGE
+      case 'LOCATION_NOT_EMPTY':
+        return LOCATION_NOT_EMPTY_MESSAGE
+      case 'LAST_LOCATION':
+        return LAST_LOCATION_MESSAGE
       case 'HOUSEHOLD_REQUIRED':
         return HOUSEHOLD_REQUIRED_MESSAGE
       case 'INVALID_PRODUCT_NAME':
@@ -103,6 +116,14 @@ export function mapPantryApiError(error: unknown): string {
         return AI_GENERATION_FAILED_MESSAGE
       case 'AI_UNAVAILABLE':
         return AI_UNAVAILABLE_MESSAGE
+      case 'RECEIPT_IMAGE_TOO_LARGE':
+        return RECEIPT_IMAGE_TOO_LARGE_MESSAGE
+      case 'RECEIPT_IMAGE_INVALID':
+        return RECEIPT_IMAGE_INVALID_MESSAGE
+      case 'RECEIPT_NO_ITEMS':
+        return RECEIPT_NO_ITEMS_MESSAGE
+      case 'RECEIPT_EXTRACTION_FAILED':
+        return RECEIPT_EXTRACTION_FAILED_MESSAGE
       case 'CONSTRAINT_NOT_MET':
         return CONSTRAINT_NOT_MET_MESSAGE
       case 'FORBIDDEN':

@@ -295,5 +295,115 @@ export function createD1HouseholdStore(db: D1DatabaseLike): HouseholdStore {
 
       return location
     },
+
+    async renameHousehold(input): Promise<{ id: string; name: string }> {
+      const name = validateHouseholdName(input.name)
+      const now = nowIso()
+      const result = await db
+        .prepare(`UPDATE households SET name = ?1, updated_at = ?2 WHERE id = ?3 RETURNING id, name`)
+        .bind(name, now, input.householdId)
+        .first<{ id: string; name: string }>()
+
+      if (!result) {
+        throw new DomainError('NOT_FOUND', 'Not found')
+      }
+
+      return result
+    },
+
+    async getLocation(input): Promise<LocationRecord | null> {
+      const row = await db
+        .prepare(
+          `SELECT id, name, sort_order
+           FROM locations
+           WHERE id = ?1 AND household_id = ?2 AND is_active = 1`,
+        )
+        .bind(input.locationId, input.householdId)
+        .first<LocationRow>()
+
+      if (!row) {
+        return null
+      }
+
+      return { id: row.id, name: row.name, sortOrder: row.sort_order }
+    },
+
+    async renameLocation(input): Promise<LocationRecord> {
+      const { name, normalizedName } = validateLocationName(input.name)
+      const now = nowIso()
+
+      try {
+        const row = await db
+          .prepare(
+            `UPDATE locations
+             SET name = ?1, normalized_name = ?2, updated_at = ?3
+             WHERE id = ?4 AND household_id = ?5 AND is_active = 1
+             RETURNING id, name, sort_order`,
+          )
+          .bind(name, normalizedName, now, input.locationId, input.householdId)
+          .first<LocationRow>()
+
+        if (!row) {
+          throw new DomainError('NOT_FOUND', 'Not found')
+        }
+
+        return { id: row.id, name: row.name, sortOrder: row.sort_order }
+      } catch (error) {
+        if (error instanceof DomainError) {
+          throw error
+        }
+        if (isUniqueConstraintError(error)) {
+          throw new DomainError('LOCATION_NAME_TAKEN', 'Location name already exists')
+        }
+        throw error
+      }
+    },
+
+    async deactivateLocation(input): Promise<void> {
+      const location = await db
+        .prepare(
+          `SELECT id FROM locations
+           WHERE id = ?1 AND household_id = ?2 AND is_active = 1`,
+        )
+        .bind(input.locationId, input.householdId)
+        .first<{ id: string }>()
+
+      if (!location) {
+        throw new DomainError('NOT_FOUND', 'Not found')
+      }
+
+      const lots = await db
+        .prepare(
+          `SELECT COUNT(*) AS n FROM inventory_lots
+           WHERE household_id = ?1 AND location_id = ?2`,
+        )
+        .bind(input.householdId, input.locationId)
+        .first<{ n: number }>()
+
+      if ((lots?.n ?? 0) > 0) {
+        throw new DomainError('LOCATION_NOT_EMPTY', 'LOCATION_NOT_EMPTY')
+      }
+
+      const remaining = await db
+        .prepare(
+          `SELECT COUNT(*) AS n FROM locations
+           WHERE household_id = ?1 AND is_active = 1`,
+        )
+        .bind(input.householdId)
+        .first<{ n: number }>()
+
+      if ((remaining?.n ?? 0) <= 1) {
+        throw new DomainError('LAST_LOCATION', 'LAST_LOCATION')
+      }
+
+      const now = nowIso()
+      await db
+        .prepare(
+          `UPDATE locations SET is_active = 0, updated_at = ?1
+           WHERE id = ?2 AND household_id = ?3 AND is_active = 1`,
+        )
+        .bind(now, input.locationId, input.householdId)
+        .run()
+    },
   }
 }

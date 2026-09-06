@@ -6,7 +6,7 @@ import {
   type HouseholdStore,
 } from '@pantry/core'
 import { createD1HouseholdStore } from '@pantry/database/d1'
-import { requireAuth, requireHouseholdMember } from '../auth/authorize.js'
+import { requireAuth, requireHouseholdMember, requireHouseholdOwner } from '../auth/authorize.js'
 import { ensureProfile } from '../profiles/profile.js'
 
 export const households = new Hono<{ Bindings: CloudflareBindings }>()
@@ -84,6 +84,51 @@ households.get('/household', async (c) => {
   await ensureProfile(c.env.DB, user)
   const household = await storeFor(c.env.DB).getActiveHousehold(user.id)
   return c.json({ household })
+})
+
+households.patch('/household', async (c) => {
+  const user = await requireAuth(c.env, c.req.raw)
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
+  await ensureProfile(c.env.DB, user)
+
+  let payload: unknown
+  try {
+    payload = await c.req.json()
+  } catch {
+    return c.json({ error: 'Invalid household name', code: 'INVALID_HOUSEHOLD_NAME' }, 400)
+  }
+
+  const body = readJsonObject(payload)
+  if (!body || typeof body.name !== 'string') {
+    return c.json({ error: 'Invalid household name', code: 'INVALID_HOUSEHOLD_NAME' }, 400)
+  }
+
+  try {
+    const dbStore = storeFor(c.env.DB)
+    const household = await dbStore.getActiveHousehold(user.id)
+    if (!household) {
+      throw new DomainError('HOUSEHOLD_REQUIRED', 'Household setup required')
+    }
+
+    requireHouseholdOwner(await dbStore.getMembership(user.id, household.id))
+    const renamed = await dbStore.renameHousehold({ householdId: household.id, name: body.name })
+    return c.json({
+      household: {
+        id: renamed.id,
+        name: renamed.name,
+        role: 'owner' as const,
+      },
+    })
+  } catch (error) {
+    if (isDomainError(error)) {
+      const mapped = domainResponse(error)
+      return c.json(mapped.body, mapped.status)
+    }
+    throw error
+  }
 })
 
 households.put('/household/active', async (c) => {

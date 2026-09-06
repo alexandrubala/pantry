@@ -14,7 +14,7 @@ import type {
   ShoppingList,
   Unit,
 } from '@pantry/core'
-import { apiGet, apiSend } from './api'
+import { apiGet, apiSend, apiSendForm } from './api'
 
 export type HouseholdsResponse = {
   households: HouseholdSummary[]
@@ -407,6 +407,55 @@ export function removeHouseholdMember(userId: string) {
 
 export function leaveHousehold() {
   return apiSend<void>('/api/v1/household/leave', 'POST', {})
+}
+
+export function renameHousehold(name: string) {
+  return apiSend<ActiveHouseholdResponse>('/api/v1/household', 'PATCH', { name })
+}
+
+export function renameLocation(locationId: string, name: string) {
+  return apiSend<CreateLocationResponse>(`/api/v1/locations/${encodeURIComponent(locationId)}`, 'PATCH', { name })
+}
+
+export function deactivateLocation(locationId: string) {
+  return apiSend<void>(`/api/v1/locations/${encodeURIComponent(locationId)}`, 'DELETE')
+}
+
+export type ReceiptDraftLineView = {
+  rawName: string
+  name: string
+  quantity: number | null
+  unit: Unit | null
+  lineTotal: number | null
+  weightValue: number | null
+  weightUnit: 'g' | 'kg' | 'ml' | 'l' | null
+  confidence: number | null
+  suggestedProduct: {
+    id: string
+    name: string
+    brand: string | null
+    unit: Unit
+    packageQuantity: number | null
+    packageUnit: Unit | null
+  } | null
+  suggestedQuantity: number | null
+  suggestedUnit: Unit | null
+}
+
+export type ReceiptExtractResponse = {
+  receipt: {
+    merchant: string | null
+    date: string | null
+    currency: string | null
+    total: number | null
+    items: ReceiptDraftLineView[]
+  }
+}
+
+export function extractReceipt(image: Blob, fileName = 'receipt.jpg') {
+  const form = new FormData()
+  form.append('image', image, fileName)
+  return apiSendForm<ReceiptExtractResponse>('/api/v1/receipts/extract', form)
 }
 
 export function getInvitePreview(token: string) {

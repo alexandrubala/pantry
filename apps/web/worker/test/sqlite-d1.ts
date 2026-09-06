@@ -77,6 +77,7 @@ export function openPantryDb() {
   db.exec(readFileSync(join(migrationsDir(), '0008_ai_cook.sql'), 'utf8'))
   db.exec(readFileSync(join(migrationsDir(), '0009_product_polish.sql'), 'utf8'))
   db.exec(readFileSync(join(migrationsDir(), '0010_household_sharing.sql'), 'utf8'))
+  db.exec(readFileSync(join(migrationsDir(), '0011_settings_receipts.sql'), 'utf8'))
   return db
 }
 
@@ -100,6 +101,7 @@ export function envWithDb(db: DatabaseSync, aiRun?: (model: string, inputs: unkn
     BETTER_AUTH_SECRET: TEST_SECRET,
     BETTER_AUTH_URL: TEST_URL,
     AI_MODEL: '@cf/meta/llama-4-scout-17b-16e-instruct',
+    RECEIPT_AI_MODEL: '@cf/google/gemma-4-26b-a4b-it',
     AI: {
       async run(model: string, inputs: unknown, options?: unknown) {
         if (!aiRun) {

@@ -169,3 +169,218 @@ test('locations stay isolated across tenants', async () => {
   const listA = await app.request('/api/v1/locations', {}, envWithDb(db))
   expect((await listA.json()).locations).toHaveLength(8)
 })
+
+test('location mutation routes require auth', async () => {
+  const env = envWithDb(openPantryDb())
+  expect(
+    (
+      await app.request(
+        '/api/v1/locations/loc-1',
+        {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ name: 'Debara' }),
+        },
+        env,
+      )
+    ).status,
+  ).toBe(401)
+  expect((await app.request('/api/v1/locations/loc-1', { method: 'DELETE' }, env)).status).toBe(401)
+})
+
+test('PATCH /api/v1/locations/:id renames in the active household and rejects duplicates', async () => {
+  const db = openPantryDb()
+  insertUser(db, 'user-1', 'Alex', 'alex@example.invalid')
+  insertProfile(db, 'user-1', 'Alex')
+  await createHousehold(db, 'user-1', 'Casa mea')
+
+  const list = await app.request('/api/v1/locations', {}, envWithDb(db))
+  const locations = ((await list.json()) as { locations: Array<{ id: string; name: string }> }).locations
+  const pantry = locations.find((location) => location.name === 'Cămară')
+  if (!pantry) {
+    throw new Error('missing Cămară')
+  }
+
+  const renamed = await app.request(
+    `/api/v1/locations/${pantry.id}`,
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Debara' }),
+    },
+    envWithDb(db),
+  )
+  expect(renamed.status).toBe(200)
+  expect(((await renamed.json()) as { location: { id: string; name: string } }).location).toMatchObject({
+    id: pantry.id,
+    name: 'Debara',
+  })
+
+  const duplicate = await app.request(
+    `/api/v1/locations/${pantry.id}`,
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Frigider' }),
+    },
+    envWithDb(db),
+  )
+  expect(duplicate.status).toBe(409)
+})
+
+test('renaming a location keeps inventory lots attached to the same id', async () => {
+  const db = openPantryDb()
+  insertUser(db, 'user-1', 'Alex', 'alex@example.invalid')
+  insertProfile(db, 'user-1', 'Alex')
+  await createHousehold(db, 'user-1', 'Casa mea')
+  const env = envWithDb(db)
+  const list = await app.request('/api/v1/locations', {}, env)
+  const pantry = ((await list.json()) as { locations: Array<{ id: string; name: string }> }).locations.find(
+    (location) => location.name === 'Cămară',
+  )
+  if (!pantry) {
+    throw new Error('missing Cămară')
+  }
+  const product = await app.request(
+    '/api/v1/products',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Făină', unit: 'g' }),
+    },
+    env,
+  )
+  const productId = ((await product.json()) as { product: { id: string } }).product.id
+  await app.request(
+    '/api/v1/inventory/stock',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ productId, locationId: pantry.id, quantity: 1000, expiresOn: null }),
+    },
+    env,
+  )
+  const renamed = await app.request(
+    `/api/v1/locations/${pantry.id}`,
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Debara' }),
+    },
+    env,
+  )
+  expect(renamed.status).toBe(200)
+  const inventory = await app.request('/api/v1/inventory', {}, env)
+  const items = ((await inventory.json()) as { items: Array<{ lots: Array<{ locationId: string; locationName: string }> }> }).items
+  expect(items[0]?.lots[0]?.locationId).toBe(pantry.id)
+  expect(items[0]?.lots[0]?.locationName).toBe('Debara')
+})
+
+test('DELETE /api/v1/locations/:id deactivates empty locations and rejects stock or last location', async () => {
+  const db = openPantryDb()
+  insertUser(db, 'user-1', 'Alex', 'alex@example.invalid')
+  insertProfile(db, 'user-1', 'Alex')
+  await createHousehold(db, 'user-1', 'Casa mea')
+  const env = envWithDb(db)
+
+  const created = await app.request(
+    '/api/v1/locations',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Beci' }),
+    },
+    env,
+  )
+  const extraId = ((await created.json()) as { location: { id: string } }).location.id
+
+  const list = await app.request('/api/v1/locations', {}, env)
+  const locations = ((await list.json()) as { locations: Array<{ id: string; name: string }> }).locations
+  const fridge = locations.find((location) => location.name === 'Frigider')
+  if (!fridge) {
+    throw new Error('missing Frigider')
+  }
+
+  const product = await app.request(
+    '/api/v1/products',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Lapte', unit: 'ml' }),
+    },
+    env,
+  )
+  const productId = ((await product.json()) as { product: { id: string } }).product.id
+  await app.request(
+    '/api/v1/inventory/stock',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ productId, locationId: fridge.id, quantity: 1000, expiresOn: null }),
+    },
+    env,
+  )
+
+  const notEmpty = await app.request(`/api/v1/locations/${fridge.id}`, { method: 'DELETE' }, env)
+  expect(notEmpty.status).toBe(409)
+  await expect(notEmpty.json()).resolves.toMatchObject({ code: 'LOCATION_NOT_EMPTY' })
+
+  const consumed = await app.request(
+    '/api/v1/inventory/consume',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ productId, quantity: 1000 }),
+    },
+    env,
+  )
+  expect(consumed.status).toBe(200)
+
+  const deactivated = await app.request(`/api/v1/locations/${extraId}`, { method: 'DELETE' }, env)
+  expect(deactivated.status).toBe(204)
+
+  const remaining = ((await (await app.request('/api/v1/locations', {}, env)).json()) as {
+    locations: Array<{ id: string }>
+  }).locations
+  for (const location of remaining.slice(1)) {
+    const res = await app.request(`/api/v1/locations/${location.id}`, { method: 'DELETE' }, env)
+    expect(res.status).toBe(204)
+  }
+  const last = await app.request(`/api/v1/locations/${remaining[0]!.id}`, { method: 'DELETE' }, env)
+  expect(last.status).toBe(409)
+  await expect(last.json()).resolves.toMatchObject({ code: 'LAST_LOCATION' })
+})
+
+test('location writes stay 404 across households', async () => {
+  const db = openPantryDb()
+  insertUser(db, 'user-a', 'A', 'a@example.invalid')
+  insertUser(db, 'user-b', 'B', 'b@example.invalid')
+  insertProfile(db, 'user-a', 'A')
+  insertProfile(db, 'user-b', 'B')
+  await createHousehold(db, 'user-a', 'Casa A')
+  await createHousehold(db, 'user-b', 'Casa B')
+
+  resolveCurrentUserMock.mockResolvedValue({ id: 'user-b', name: 'B' })
+  const listB = await app.request('/api/v1/locations', {}, envWithDb(db))
+  const pantryB = ((await listB.json()) as { locations: Array<{ id: string; name: string }> }).locations.find(
+    (location) => location.name === 'Cămară',
+  )
+  if (!pantryB) {
+    throw new Error('missing Cămară')
+  }
+
+  resolveCurrentUserMock.mockResolvedValue({ id: 'user-a', name: 'A' })
+  const renamed = await app.request(
+    `/api/v1/locations/${pantryB.id}`,
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Debara' }),
+    },
+    envWithDb(db),
+  )
+  expect(renamed.status).toBe(404)
+
+  const deleted = await app.request(`/api/v1/locations/${pantryB.id}`, { method: 'DELETE' }, envWithDb(db))
+  expect(deleted.status).toBe(404)
+})

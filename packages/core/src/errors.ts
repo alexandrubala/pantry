@@ -2,6 +2,8 @@ export const DOMAIN_ERROR_CODES = [
   'INVALID_HOUSEHOLD_NAME',
   'INVALID_LOCATION_NAME',
   'LOCATION_NAME_TAKEN',
+  'LOCATION_NOT_EMPTY',
+  'LAST_LOCATION',
   'HOUSEHOLD_REQUIRED',
   'NOT_FOUND',
   'FORBIDDEN',
@@ -28,6 +30,10 @@ export const DOMAIN_ERROR_CODES = [
   'AI_GENERATION_FAILED',
   'AI_UNAVAILABLE',
   'CONSTRAINT_NOT_MET',
+  'RECEIPT_IMAGE_INVALID',
+  'RECEIPT_IMAGE_TOO_LARGE',
+  'RECEIPT_NO_ITEMS',
+  'RECEIPT_EXTRACTION_FAILED',
 ] as const
 
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number]
@@ -67,12 +73,16 @@ export function httpStatusForDomainError(
     case 'INVALID_QUANTITY':
     case 'INVALID_EXPIRY':
     case 'INVALID_GENERATION_REQUEST':
+    case 'RECEIPT_IMAGE_INVALID':
+    case 'RECEIPT_IMAGE_TOO_LARGE':
       return 400
     case 'FORBIDDEN':
       return 403
     case 'NOT_FOUND':
       return 404
     case 'LOCATION_NAME_TAKEN':
+    case 'LOCATION_NOT_EMPTY':
+    case 'LAST_LOCATION':
     case 'HOUSEHOLD_REQUIRED':
     case 'BARCODE_TAKEN':
     case 'INSUFFICIENT_STOCK':
@@ -90,6 +100,8 @@ export function httpStatusForDomainError(
       return 410
     case 'AI_GENERATION_FAILED':
     case 'CONSTRAINT_NOT_MET':
+    case 'RECEIPT_NO_ITEMS':
+    case 'RECEIPT_EXTRACTION_FAILED':
       return 422
     case 'AI_RATE_LIMIT':
       return 429

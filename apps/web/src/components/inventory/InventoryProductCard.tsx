@@ -111,9 +111,9 @@ export function InventoryProductCard({
           type="button"
           disabled={busy || item.totalQuantity <= 0}
           className="flex h-touch min-h-touch flex-1 items-center justify-center rounded-lg bg-accent px-3 text-sm font-medium text-accent-foreground disabled:opacity-60"
-          onClick={countUnit && onQuickConsume ? onQuickConsume : onConsume}
+          onClick={onConsume}
         >
-          {countUnit ? '−1' : 'Consumă'}
+          Consumă
         </button>
         <details className="relative">
           <summary
@@ -140,6 +140,7 @@ export function InventoryProductCard({
             <OverflowItem onClick={onLots}>Loturi</OverflowItem>
             <OverflowItem onClick={onHistory}>Istoric</OverflowItem>
             <OverflowItem onClick={onAddStock}>Adaugă stoc</OverflowItem>
+            {countUnit && onQuickConsume ? <OverflowItem onClick={onQuickConsume}>Consumă 1</OverflowItem> : null}
             {countUnit ? <OverflowItem onClick={onConsume}>Consumă altă cantitate</OverflowItem> : null}
           </div>
         </details>

@@ -11,6 +11,7 @@ import { shopping } from './routes/shopping.js'
 import { ai } from './routes/ai.js'
 import { recipes } from './routes/recipes.js'
 import { householdSharing } from './routes/household-sharing.js'
+import { receipts } from './routes/receipts.js'
 
 const app = new Hono<{ Bindings: CloudflareBindings }>()
 
@@ -25,6 +26,7 @@ app.route('/api/v1', inventory)
 app.route('/api/v1', shopping)
 app.route('/api/v1', ai)
 app.route('/api/v1', recipes)
+app.route('/api/v1', receipts)
 
 app.all('/api/auth/*', (c) => createAuth(c.env).handler(c.req.raw))
 

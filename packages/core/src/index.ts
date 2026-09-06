@@ -81,6 +81,13 @@ export {
   type ConsumptionPlanResult,
 } from './inventory/consumption.js'
 export {
+  CONSUME_PERCENTS,
+  consumePercentQuantity,
+  isDiscreteUnit,
+  roundHalfToEven,
+  type ConsumePercent,
+} from './inventory/consume-percent.js'
+export {
   EXPIRING_SOON_DAYS,
   addDaysIso,
   calendarDaysBetween,
@@ -143,7 +150,13 @@ export type {
   InventorySummary,
 } from './ports/inventory-store.js'
 export type { ShoppingItem, ShoppingList, ShoppingStore } from './ports/shopping-store.js'
-export type { AiProvider, AiRecipeGenerationInput } from './ports/ai-provider.js'
+export type {
+  AiProvider,
+  AiRecipeGenerationInput,
+  ReceiptVisionInput,
+  ReceiptVisionProvider,
+} from './ports/ai-provider.js'
+export type { ReceiptExtractionReservation, ReceiptStore } from './ports/receipt-store.js'
 export type {
   AiGenerationReservation,
   RecipeStore,
@@ -187,3 +200,24 @@ export {
   aiRateLimitRetryAfterSeconds,
   aiRateLimitWindowStart,
 } from './recipe/rate-limit.js'
+export { AI_RECEIPT_JSON_SCHEMA } from './receipt/schema.js'
+export {
+  RECEIPT_MAX_IMAGE_BYTES,
+  RECEIPT_MAX_ITEMS,
+  RECEIPT_WEIGHT_UNITS,
+  type ReceiptDraft,
+  type ReceiptDraftItem,
+  type ReceiptDraftLine,
+  type ReceiptProductMatch,
+  type ReceiptWeightUnit,
+} from './receipt/types.js'
+export { parseReceiptDraft } from './receipt/parse.js'
+export { matchReceiptProduct } from './receipt/match.js'
+export { suggestReceiptImportQuantity, type ReceiptQuantitySuggestion } from './receipt/quantity.js'
+export { annotateReceiptDraft } from './receipt/annotate.js'
+export {
+  RECEIPT_EXTRACTION_LIMIT_PER_HOUR,
+  receiptExtractionLimitPerHour,
+  receiptRateLimitRetryAfterSeconds,
+  receiptRateLimitWindowStart,
+} from './receipt/rate-limit.js'

@@ -62,11 +62,12 @@ async function parseError(response: Response): Promise<PantryApiError> {
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response
+  const isFormData = typeof FormData !== 'undefined' && init?.body instanceof FormData
   try {
     response = await fetch(path, {
       ...init,
       headers: {
-        ...(init?.body ? { 'content-type': 'application/json' } : {}),
+        ...(init?.body && !isFormData ? { 'content-type': 'application/json' } : {}),
         ...init?.headers,
       },
     })
@@ -93,5 +94,12 @@ export function apiSend<T>(path: string, method: 'POST' | 'PUT' | 'PATCH' | 'DEL
   return apiRequest<T>(path, {
     method,
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  })
+}
+
+export function apiSendForm<T>(path: string, body: FormData): Promise<T> {
+  return apiRequest<T>(path, {
+    method: 'POST',
+    body,
   })
 }

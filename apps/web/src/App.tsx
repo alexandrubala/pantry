@@ -13,6 +13,7 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ScanPage } from './pages/ScanPage'
+import { SettingsPage } from './pages/SettingsPage'
 import { ShoppingPage } from './pages/ShoppingPage'
 
 export const supportedUnits: readonly Unit[] = UNITS
@@ -36,6 +37,7 @@ export default function App() {
               <Route path="shopping" element={<ShoppingPage />} />
               <Route path="ai" element={<AiPage />} />
               <Route path="household" element={<HouseholdPage />} />
+              <Route path="settings" element={<SettingsPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Route>

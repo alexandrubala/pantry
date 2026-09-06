@@ -5,10 +5,13 @@ export type CameraErrorReason =
   | 'in-use'
   | 'unsupported'
   | 'failed'
+  | 'denied'
+
+export type CameraPermissionState = 'granted' | 'prompt' | 'denied' | 'unknown'
 
 export function cameraErrorMessage(reason: CameraErrorReason): string {
-  if (reason === 'permission') {
-    return 'Permite accesul la cameră pentru a scana codul.'
+  if (reason === 'permission' || reason === 'denied') {
+    return 'Permite accesul la cameră pentru a scana. Pantry nu poate memora permisiunea — schimb-o din setările site-ului dacă browserul o cere mereu.'
   }
 
   if (reason === 'in-use') {
@@ -54,6 +57,28 @@ export function stopMediaStream(stream: MediaStream | null | undefined) {
   }
 }
 
+export async function queryCameraPermission(
+  permissions: Pick<Permissions, 'query'> | undefined = navigator.permissions,
+): Promise<CameraPermissionState> {
+  if (!permissions || typeof permissions.query !== 'function') {
+    return 'unknown'
+  }
+
+  try {
+    const status = await permissions.query({ name: 'camera' as PermissionName })
+    if (status.state === 'granted' || status.state === 'prompt' || status.state === 'denied') {
+      return status.state
+    }
+    return 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
+export function shouldRequestCamera(state: CameraPermissionState): boolean {
+  return state !== 'denied'
+}
+
 export function videoTrackSupportsTorch(track: MediaStreamTrack | undefined): boolean {
   if (!track || typeof track.getCapabilities !== 'function') {
     return false
@@ -63,10 +88,36 @@ export function videoTrackSupportsTorch(track: MediaStreamTrack | undefined): bo
   return capabilities.torch === true
 }
 
-export async function setVideoTrackTorch(track: MediaStreamTrack, on: boolean): Promise<void> {
-  await track.applyConstraints({
-    advanced: [{ torch: on } as MediaTrackConstraintSet],
-  })
+export type TorchApplyResult =
+  | { ok: true; on: boolean }
+  | { ok: false; reason: 'unsupported' | 'failed' }
+
+function readTorchSetting(track: MediaStreamTrack, fallback: boolean): boolean {
+  if (typeof track.getSettings !== 'function') {
+    return fallback
+  }
+
+  const settings = track.getSettings() as MediaTrackSettings & { torch?: boolean }
+  return settings.torch === true
+}
+
+export async function setVideoTrackTorch(track: MediaStreamTrack, on: boolean): Promise<TorchApplyResult> {
+  if (!videoTrackSupportsTorch(track) || typeof track.applyConstraints !== 'function') {
+    return { ok: false, reason: 'unsupported' }
+  }
+
+  try {
+    await track.applyConstraints({
+      advanced: [{ torch: on } as MediaTrackConstraintSet],
+    })
+    const actual = readTorchSetting(track, on)
+    if (actual !== on) {
+      return { ok: false, reason: 'failed' }
+    }
+    return { ok: true, on: actual }
+  } catch {
+    return { ok: false, reason: 'failed' }
+  }
 }
 
 export async function applyContinuousFocus(track: MediaStreamTrack): Promise<void> {

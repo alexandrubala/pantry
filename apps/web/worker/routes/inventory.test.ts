@@ -349,3 +349,47 @@ test('concurrent consume of the last unit yields one success and one conflict', 
   })
   expect(db.prepare('SELECT MIN(quantity) AS q FROM inventory_lots').get()).toEqual({ q: null })
 })
+
+test('consume 25% of 1000 ml then 125 ml leaves 625 ml', async () => {
+  const db = openPantryDb()
+  insertUser(db, 'user-1', 'Alex', 'alex@example.invalid')
+  insertProfile(db, 'user-1', 'Alex')
+  await createHousehold(db, 'user-1', 'Casa mea')
+  const locationId = await fridgeId(db)
+  const product = await createProduct(db, 'Lapte', 'ml', 'Pilos')
+  const env = envWithDb(db)
+
+  await app.request(
+    '/api/v1/inventory/stock',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ productId: product.product.id, locationId, quantity: 1000, expiresOn: null }),
+    },
+    env,
+  )
+
+  const first = await app.request(
+    '/api/v1/inventory/consume',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ productId: product.product.id, quantity: 250 }),
+    },
+    env,
+  )
+  expect(first.status).toBe(200)
+  expect(((await first.json()) as { item: { totalQuantity: number } }).item.totalQuantity).toBe(750)
+
+  const second = await app.request(
+    '/api/v1/inventory/consume',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ productId: product.product.id, quantity: 125 }),
+    },
+    env,
+  )
+  expect(second.status).toBe(200)
+  expect(((await second.json()) as { item: { totalQuantity: number } }).item.totalQuantity).toBe(625)
+})

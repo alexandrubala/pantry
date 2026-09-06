@@ -36,6 +36,8 @@ Commands from the repo root. Wrangler config is `apps/web/wrangler.jsonc`.
 
 `0010_household_sharing.sql` creates `invites` with `token_hash` (SHA-256 of the raw link token). Raw tokens are never stored. Invitation role is `member` only.
 
+`0011_settings_receipts.sql` creates `receipt_ai_rate_limits`. Raw receipt images are not stored. Household rename and location rename/deactivate use existing `households` / `locations` columns.
+
 D1 adapters live in `adapters/d1/` and implement `@pantry/core` ports. They must not be imported from `packages/core`.
 
 ## Portability

@@ -34,6 +34,7 @@ export function applyPantryMigrations(db: DatabaseSync): void {
   db.exec(readFileSync(join(migrationsDir(), '0008_ai_cook.sql'), 'utf8'))
   db.exec(readFileSync(join(migrationsDir(), '0009_product_polish.sql'), 'utf8'))
   db.exec(readFileSync(join(migrationsDir(), '0010_household_sharing.sql'), 'utf8'))
+  db.exec(readFileSync(join(migrationsDir(), '0011_settings_receipts.sql'), 'utf8'))
 }
 
 export function sqliteAsD1(db: DatabaseSync): D1DatabaseLike {

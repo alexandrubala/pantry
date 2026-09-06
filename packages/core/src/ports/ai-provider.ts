@@ -9,3 +9,11 @@ export type AiRecipeGenerationInput = {
 export type AiProvider = {
   generateRecipe(input: AiRecipeGenerationInput): Promise<unknown>
 }
+
+export type ReceiptVisionInput = {
+  imageDataUri: string
+}
+
+export type ReceiptVisionProvider = {
+  extractReceipt(input: ReceiptVisionInput): Promise<unknown>
+}
