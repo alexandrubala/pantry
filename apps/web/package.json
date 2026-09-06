@@ -1,13 +1,14 @@
 {
   "name": "web",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
+    "test": "vitest run",
     "db:migrate:local": "wrangler d1 migrations apply pantry --local",
     "db:migrate:remote": "wrangler d1 migrations apply pantry --remote",
     "db:migrations:list:local": "wrangler d1 migrations list pantry --local",
@@ -32,6 +33,7 @@
     "typescript": "~6.0.2",
     "vite": "^8.2.2",
     "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^5.0.0",
     "wrangler": "^4.129.0"
   }
 }
