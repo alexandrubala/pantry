@@ -26,6 +26,8 @@ pnpm install
 
 `pnpm ci:check` runs typecheck, tests, and the production build. It does not apply remote D1 migrations. GitHub Actions runs this on pull requests and pushes to `main`. Production deploys are owned by Cloudflare Workers Builds.
 
+Delivery status: pushes to `main` automatically build and deploy the existing `pantry` Worker.
+
 ## Environment and configuration
 
 Config is split into public frontend values, Worker bindings, Worker secrets, and optional future bindings.
