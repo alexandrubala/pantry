@@ -1,10 +1,13 @@
 import type {
   ActiveHousehold,
+  ExternalCatalogId,
   HouseholdSummary,
   InventoryHistoryEntry,
   InventoryItem,
   LocationRecord,
+  ProductNutrition,
   ProductRecord,
+  Unit,
 } from '@pantry/core'
 import { apiGet, apiSend } from './api'
 
@@ -77,8 +80,52 @@ export function getProducts(search?: string) {
   return apiGet<ProductsResponse>(`/api/v1/products${query}`)
 }
 
-export function createProduct(input: { name: string; brand?: string; unit: string }) {
+export function createProduct(input: { name: string; brand?: string; unit: string; barcode?: string }) {
   return apiSend<CreateProductResponse>('/api/v1/products', 'POST', input)
+}
+
+export type BarcodeLookupExisting = {
+  status: 'existing'
+  product: ProductRecord
+}
+
+export type ExternalBarcodeProduct = {
+  barcode: string
+  catalog: ExternalCatalogId
+  productType: string | null
+  name: string | null
+  brand: string | null
+  imageUrl: string | null
+  quantityText: string | null
+  packageQuantity: number | null
+  packageUnit: Unit | null
+  packageQuantityConfident: boolean
+  unit: Unit
+  nutrition: ProductNutrition | null
+}
+
+export type BarcodeLookupExternal = {
+  status: 'external'
+  product: ExternalBarcodeProduct
+}
+
+export type BarcodeLookupNotFound = {
+  status: 'not_found'
+  barcode: string
+}
+
+export type BarcodeLookupResponse = BarcodeLookupExisting | BarcodeLookupExternal | BarcodeLookupNotFound
+
+export type ImportBarcodeResponse = {
+  product: ProductRecord
+}
+
+export function lookupBarcode(barcode: string) {
+  return apiGet<BarcodeLookupResponse>(`/api/v1/barcodes/${encodeURIComponent(barcode)}`)
+}
+
+export function importBarcode(barcode: string) {
+  return apiSend<ImportBarcodeResponse>(`/api/v1/barcodes/${encodeURIComponent(barcode)}/import`, 'POST', {})
 }
 
 export function getInventory(input?: { search?: string; locationId?: string }) {

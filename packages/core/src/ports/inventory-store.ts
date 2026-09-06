@@ -1,3 +1,5 @@
+import type { ExternalCatalogId } from './external-product-catalog.js'
+import type { ProductNutrition } from '../product/nutrition.js'
 import type { Unit } from '../product/units.js'
 import type { ConsumableLot, ConsumptionPlanResult } from '../inventory/consumption.js'
 
@@ -14,6 +16,10 @@ export type InventoryProduct = {
   name: string
   brand: string | null
   unit: Unit
+  barcode: string | null
+  imageUrl: string | null
+  externalCatalog: ExternalCatalogId | null
+  nutrition: ProductNutrition | null
 }
 
 export type InventoryItem = {

@@ -126,3 +126,41 @@ test('GET /api/v1/products search is household-scoped', async () => {
   expect(body.products).toHaveLength(1)
   expect(body.products[0].name).toBe('Lapte')
 })
+
+test('POST /api/v1/products can attach a household-private barcode', async () => {
+  const db = openPantryDb()
+  insertUser(db, 'user-1', 'Alex', 'alex@example.invalid')
+  insertProfile(db, 'user-1', 'Alex')
+  const household = await createHousehold(db, 'user-1', 'Casa mea')
+
+  const created = await app.request(
+    '/api/v1/products',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Cafea', unit: 'g', barcode: '01234565' }),
+    },
+    envWithDb(db),
+  )
+  expect(created.status).toBe(201)
+  const body = await created.json()
+  expect(body.product.barcode).toBe('01234565')
+
+  const row = db.prepare('SELECT household_id, source, barcode FROM products WHERE id = ?').get(body.product.id)
+  expect(row).toEqual({
+    household_id: household.household.id,
+    source: 'manual',
+    barcode: '01234565',
+  })
+
+  const duplicate = await app.request(
+    '/api/v1/products',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Altă cafea', unit: 'g', barcode: '01234565' }),
+    },
+    envWithDb(db),
+  )
+  expect(duplicate.status).toBe(409)
+})

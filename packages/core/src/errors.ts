@@ -7,6 +7,8 @@ export const DOMAIN_ERROR_CODES = [
   'INVALID_PRODUCT_NAME',
   'INVALID_BRAND',
   'INVALID_UNIT',
+  'INVALID_BARCODE',
+  'BARCODE_TAKEN',
   'INVALID_QUANTITY',
   'INVALID_EXPIRY',
   'INSUFFICIENT_STOCK',
@@ -38,6 +40,7 @@ export function httpStatusForDomainError(code: DomainErrorCode): 400 | 404 | 409
     case 'INVALID_PRODUCT_NAME':
     case 'INVALID_BRAND':
     case 'INVALID_UNIT':
+    case 'INVALID_BARCODE':
     case 'INVALID_QUANTITY':
     case 'INVALID_EXPIRY':
       return 400
@@ -45,6 +48,7 @@ export function httpStatusForDomainError(code: DomainErrorCode): 400 | 404 | 409
       return 404
     case 'LOCATION_NAME_TAKEN':
     case 'HOUSEHOLD_REQUIRED':
+    case 'BARCODE_TAKEN':
     case 'INSUFFICIENT_STOCK':
     case 'STOCK_CONFLICT':
       return 409

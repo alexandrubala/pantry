@@ -13,6 +13,9 @@ export const PRODUCT_UNIT_INVALID_MESSAGE = 'Alege o unitate validă.'
 export const QUANTITY_INVALID_MESSAGE = 'Introdu o cantitate mai mare decât 0.'
 export const EXPIRY_INVALID_MESSAGE = 'Introdu o dată de expirare validă.'
 export const STOCK_CONFLICT_MESSAGE = 'Stocul s-a schimbat. Încearcă din nou.'
+export const BARCODE_INVALID_MESSAGE = 'Introdu un cod de bare valid.'
+export const BARCODE_TAKEN_MESSAGE = 'Există deja un produs cu acest cod de bare.'
+export const CATALOG_UNAVAILABLE_MESSAGE = 'Nu am putut verifica produsul acum. Încearcă din nou.'
 
 export function insufficientStockMessage(availableLabel: string): string {
   return `Nu ai suficient stoc. Disponibil: ${availableLabel}`
@@ -49,6 +52,12 @@ export function mapPantryApiError(error: unknown): string {
         return EXPIRY_INVALID_MESSAGE
       case 'STOCK_CONFLICT':
         return STOCK_CONFLICT_MESSAGE
+      case 'INVALID_BARCODE':
+        return BARCODE_INVALID_MESSAGE
+      case 'BARCODE_TAKEN':
+        return BARCODE_TAKEN_MESSAGE
+      case 'CATALOG_UNAVAILABLE':
+        return CATALOG_UNAVAILABLE_MESSAGE
       case 'INSUFFICIENT_STOCK':
         return insufficientStockMessage(
           typeof error.available === 'number' ? String(error.available) : '0',

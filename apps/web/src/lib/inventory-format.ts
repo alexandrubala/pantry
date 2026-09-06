@@ -1,3 +1,4 @@
+import type { ProductNutrition } from '@pantry/core'
 import type { Unit } from '@pantry/shared'
 
 const UNIT_LABELS: Record<Unit, { one: string; other: string }> = {
@@ -8,6 +9,7 @@ const UNIT_LABELS: Record<Unit, { one: string; other: string }> = {
 }
 
 const numberFormatter = new Intl.NumberFormat('ro-RO', { maximumFractionDigits: 3 })
+const nutrientFormatter = new Intl.NumberFormat('ro-RO', { maximumFractionDigits: 2 })
 
 export function unitLabel(unit: Unit, quantity = 2): string {
   const labels = UNIT_LABELS[unit]
@@ -51,4 +53,23 @@ export function isExpirySoon(isoDate: string, today = localIsoDate()): boolean {
   limit.setUTCDate(limit.getUTCDate() + 3)
   const limitIso = limit.toISOString().slice(0, 10)
   return isoDate <= limitIso
+}
+
+export function formatKcal100g(kcal: number): string {
+  return `${nutrientFormatter.format(kcal)} kcal / 100 g`
+}
+
+export function formatMacroLine(nutrition: ProductNutrition): string | null {
+  const parts: string[] = []
+  if (nutrition.proteinG100g != null) {
+    parts.push(`P ${nutrientFormatter.format(nutrition.proteinG100g)} g`)
+  }
+  if (nutrition.carbohydratesG100g != null) {
+    parts.push(`C ${nutrientFormatter.format(nutrition.carbohydratesG100g)} g`)
+  }
+  if (nutrition.fatG100g != null) {
+    parts.push(`G ${nutrientFormatter.format(nutrition.fatG100g)} g`)
+  }
+
+  return parts.length > 0 ? parts.join(' · ') : null
 }

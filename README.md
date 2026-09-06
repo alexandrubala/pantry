@@ -29,6 +29,18 @@ pnpm install
 
 Delivery status: pushes to `main` automatically build and deploy the existing `pantry` Worker.
 
+## Open Food Facts / Open Products Facts
+
+Product scans look up barcodes server-side with the Open Facts API v3:
+
+`GET https://world.openfoodfacts.org/api/v3/product/{barcode}`
+
+If the barcode is not a food product, Pantry then tries Open Products Facts. The browser never calls those APIs directly.
+
+Pantry uses Open Food Facts and Open Products Facts data. That data is available under the Open Database License, with product images under Creative Commons Attribution ShareAlike. Pantry stores only mapped fields and external image URLs — not a copy of the Open Facts database.
+
+Source links are shown on scanned products, for example [Open Food Facts](https://world.openfoodfacts.org/) and [Open Products Facts](https://world.openproductsfacts.org/).
+
 ## Environment and configuration
 
 Config is split into public frontend values, Worker bindings, Worker secrets, and optional future bindings.

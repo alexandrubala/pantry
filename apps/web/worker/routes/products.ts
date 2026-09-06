@@ -100,6 +100,14 @@ products.post('/products', async (c) => {
     return c.json({ error: 'Invalid brand', code: 'INVALID_BRAND' }, 400)
   }
 
+  let barcode: string | null = null
+  if (body.barcode != null) {
+    if (typeof body.barcode !== 'string') {
+      return c.json({ error: 'Invalid barcode', code: 'INVALID_BARCODE' }, 400)
+    }
+    barcode = body.barcode
+  }
+
   try {
     const { household, products: store } = await requireActiveHousehold(c.env, user.id)
     const product = await store.createManualProduct({
@@ -107,6 +115,7 @@ products.post('/products', async (c) => {
       name: body.name,
       brand,
       unit: body.unit,
+      barcode,
     })
     return c.json({ product }, 201)
   } catch (error) {

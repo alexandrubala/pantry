@@ -1,7 +1,10 @@
 import type { InventoryItem } from '@pantry/core'
+import { ProductImage } from '../scan/ProductImage'
 import {
   formatExpiryHeadline,
+  formatKcal100g,
   formatLotExpiry,
+  formatMacroLine,
   formatQuantity,
   isExpirySoon,
 } from '../../lib/inventory-format'
@@ -16,16 +19,29 @@ export function InventoryProductCard({
   onConsume: () => void
 }) {
   const expirySoon = item.nearestExpiry ? isExpirySoon(item.nearestExpiry) : false
+  const nutrition = item.product.nutrition
+  const kcal = nutrition?.energyKcal100g
+  const macros = nutrition ? formatMacroLine(nutrition) : null
 
   return (
     <article className="rounded-2xl border border-border bg-surface-elevated p-4 shadow-surface">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-lg font-semibold tracking-tight">{item.product.name}</h2>
-          {item.product.brand ? <p className="mt-0.5 text-sm text-muted">{item.product.brand}</p> : null}
+        <div className="flex min-w-0 items-start gap-3">
+          <ProductImage url={item.product.imageUrl} name={item.product.name} sizeClassName="size-14" />
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold tracking-tight">{item.product.name}</h2>
+            {item.product.brand ? <p className="mt-0.5 text-sm text-muted">{item.product.brand}</p> : null}
+          </div>
         </div>
         <p className="shrink-0 text-base font-medium">{formatQuantity(item.totalQuantity, item.product.unit)}</p>
       </div>
+
+      {kcal != null ? (
+        <details className="mt-2">
+          <summary className="cursor-pointer text-sm text-muted">{formatKcal100g(kcal)}</summary>
+          {macros ? <p className="mt-1 text-sm text-muted">{macros}</p> : null}
+        </details>
+      ) : null}
 
       {item.nearestExpiry ? (
         <p className={`mt-2 text-sm ${expirySoon ? 'font-medium text-warning' : 'text-muted'}`}>

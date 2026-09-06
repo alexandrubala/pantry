@@ -1,8 +1,15 @@
 import {
+  DomainError,
+  isEmptyNutrition,
   normalizeProductName,
+  planExternalProduct,
   planManualProduct,
+  validateBarcode,
+  type ExternalCatalogId,
+  type ProductNutrition,
   type ProductRecord,
   type ProductStore,
+  type Unit,
 } from '@pantry/core'
 import type { D1DatabaseLike } from './d1-like.js'
 
@@ -10,8 +17,56 @@ type ProductRow = {
   id: string
   name: string
   brand: string | null
-  default_unit: ProductRecord['unit']
+  default_unit: Unit
+  barcode: string | null
+  image_url: string | null
+  source: ProductRecord['source']
+  external_catalog: ExternalCatalogId | null
+  external_product_type: string | null
+  package_quantity: number | null
+  package_unit: Unit | null
+  energy_kcal_100g: number | null
+  protein_g_100g: number | null
+  carbohydrates_g_100g: number | null
+  fat_g_100g: number | null
+  sugars_g_100g: number | null
+  fiber_g_100g: number | null
+  salt_g_100g: number | null
+  serving_size: string | null
+  energy_kcal_serving: number | null
+  protein_g_serving: number | null
+  carbohydrates_g_serving: number | null
+  fat_g_serving: number | null
+  nutrition_updated_at: string | null
 }
+
+const PRODUCT_SELECT = `SELECT
+  p.id AS id,
+  p.name AS name,
+  p.brand AS brand,
+  p.default_unit AS default_unit,
+  p.barcode AS barcode,
+  p.image_url AS image_url,
+  p.source AS source,
+  p.external_catalog AS external_catalog,
+  p.external_product_type AS external_product_type,
+  p.package_quantity AS package_quantity,
+  p.package_unit AS package_unit,
+  n.energy_kcal_100g AS energy_kcal_100g,
+  n.protein_g_100g AS protein_g_100g,
+  n.carbohydrates_g_100g AS carbohydrates_g_100g,
+  n.fat_g_100g AS fat_g_100g,
+  n.sugars_g_100g AS sugars_g_100g,
+  n.fiber_g_100g AS fiber_g_100g,
+  n.salt_g_100g AS salt_g_100g,
+  n.serving_size AS serving_size,
+  n.energy_kcal_serving AS energy_kcal_serving,
+  n.protein_g_serving AS protein_g_serving,
+  n.carbohydrates_g_serving AS carbohydrates_g_serving,
+  n.fat_g_serving AS fat_g_serving,
+  n.updated_at AS nutrition_updated_at
+FROM products p
+LEFT JOIN product_nutrition n ON n.product_id = p.id`
 
 function newId(): string {
   return crypto.randomUUID()
@@ -21,16 +76,104 @@ function nowIso(): string {
   return new Date().toISOString()
 }
 
+function isUniqueConstraintError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false
+  }
+
+  return /UNIQUE constraint failed/i.test(error.message)
+}
+
+function toNutrition(row: ProductRow): ProductNutrition | null {
+  if (!row.nutrition_updated_at) {
+    return null
+  }
+
+  const nutrition: ProductNutrition = {
+    energyKcal100g: row.energy_kcal_100g,
+    proteinG100g: row.protein_g_100g,
+    carbohydratesG100g: row.carbohydrates_g_100g,
+    fatG100g: row.fat_g_100g,
+    sugarsG100g: row.sugars_g_100g,
+    fiberG100g: row.fiber_g_100g,
+    saltG100g: row.salt_g_100g,
+    servingSize: row.serving_size,
+    energyKcalServing: row.energy_kcal_serving,
+    proteinGServing: row.protein_g_serving,
+    carbohydratesGServing: row.carbohydrates_g_serving,
+    fatGServing: row.fat_g_serving,
+  }
+
+  return nutrition
+}
+
 function toProduct(row: ProductRow): ProductRecord {
   return {
     id: row.id,
     name: row.name,
     brand: row.brand,
     unit: row.default_unit,
+    barcode: row.barcode,
+    imageUrl: row.image_url,
+    source: row.source,
+    externalCatalog: row.external_catalog,
+    externalProductType: row.external_product_type,
+    packageQuantity: row.package_quantity,
+    packageUnit: row.package_unit,
+    nutrition: toNutrition(row),
   }
 }
 
+function nutritionBindValues(productId: string, nutrition: ProductNutrition, now: string) {
+  return [
+    productId,
+    nutrition.energyKcal100g,
+    nutrition.proteinG100g,
+    nutrition.carbohydratesG100g,
+    nutrition.fatG100g,
+    nutrition.sugarsG100g,
+    nutrition.fiberG100g,
+    nutrition.saltG100g,
+    nutrition.servingSize,
+    nutrition.energyKcalServing,
+    nutrition.proteinGServing,
+    nutrition.carbohydratesGServing,
+    nutrition.fatGServing,
+    now,
+  ]
+}
+
 export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
+  async function readById(productId: string): Promise<ProductRecord | null> {
+    const row = await db
+      .prepare(`${PRODUCT_SELECT} WHERE p.id = ?1`)
+      .bind(productId)
+      .first<ProductRow>()
+
+    return row ? toProduct(row) : null
+  }
+
+  async function persistNutritionIfMissing(
+    productId: string,
+    nutrition: ProductNutrition | null,
+    now: string,
+  ): Promise<void> {
+    if (!nutrition || isEmptyNutrition(nutrition)) {
+      return
+    }
+
+    await db
+      .prepare(
+        `INSERT OR IGNORE INTO product_nutrition (
+           product_id, energy_kcal_100g, protein_g_100g, carbohydrates_g_100g, fat_g_100g,
+           sugars_g_100g, fiber_g_100g, salt_g_100g, serving_size,
+           energy_kcal_serving, protein_g_serving, carbohydrates_g_serving, fat_g_serving, updated_at
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)`,
+      )
+      .bind(...nutritionBindValues(productId, nutrition, now))
+      .run()
+  }
+
   return {
     async createManualProduct(input): Promise<ProductRecord> {
       const plan = planManualProduct({
@@ -39,31 +182,49 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
         name: input.name,
         brand: input.brand,
         unit: input.unit,
+        barcode: input.barcode,
         now: nowIso(),
       })
 
-      await db
-        .prepare(
-          `INSERT INTO products (
-             id, household_id, barcode, name, normalized_name, brand, default_unit, source, created_at, updated_at
-           ) VALUES (?1, ?2, NULL, ?3, ?4, ?5, ?6, 'manual', ?7, ?7)`,
-        )
-        .bind(
-          plan.id,
-          plan.householdId,
-          plan.name,
-          plan.normalizedName,
-          plan.brand,
-          plan.defaultUnit,
-          plan.createdAt,
-        )
-        .run()
+      try {
+        await db
+          .prepare(
+            `INSERT INTO products (
+               id, household_id, barcode, name, normalized_name, brand, default_unit, source, created_at, updated_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'manual', ?8, ?8)`,
+          )
+          .bind(
+            plan.id,
+            plan.householdId,
+            plan.barcode,
+            plan.name,
+            plan.normalizedName,
+            plan.brand,
+            plan.defaultUnit,
+            plan.createdAt,
+          )
+          .run()
+      } catch (error) {
+        if (plan.barcode && isUniqueConstraintError(error)) {
+          throw new DomainError('BARCODE_TAKEN', 'Barcode already exists')
+        }
+
+        throw error
+      }
 
       return {
         id: plan.id,
         name: plan.name,
         brand: plan.brand,
         unit: plan.defaultUnit,
+        barcode: plan.barcode,
+        imageUrl: null,
+        source: 'manual',
+        externalCatalog: null,
+        externalProductType: null,
+        packageQuantity: null,
+        packageUnit: null,
+        nutrition: null,
       }
     },
 
@@ -73,11 +234,10 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
 
       const result = await db
         .prepare(
-          `SELECT id, name, brand, default_unit
-           FROM products
-           WHERE (household_id = ?1 OR household_id IS NULL)
-             AND (?2 = '' OR normalized_name LIKE '%' || ?2 || '%')
-           ORDER BY normalized_name ASC, name ASC`,
+          `${PRODUCT_SELECT}
+           WHERE (p.household_id = ?1 OR p.household_id IS NULL)
+             AND (?2 = '' OR p.normalized_name LIKE '%' || ?2 || '%')
+           ORDER BY p.normalized_name ASC, p.name ASC`,
         )
         .bind(input.householdId, normalizedSearch)
         .all<ProductRow>()
@@ -88,14 +248,135 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
     async getReadableProduct(input): Promise<ProductRecord | null> {
       const row = await db
         .prepare(
-          `SELECT id, name, brand, default_unit
-           FROM products
-           WHERE id = ?1 AND (household_id = ?2 OR household_id IS NULL)`,
+          `${PRODUCT_SELECT}
+           WHERE p.id = ?1 AND (p.household_id = ?2 OR p.household_id IS NULL)`,
         )
         .bind(input.productId, input.householdId)
         .first<ProductRow>()
 
       return row ? toProduct(row) : null
+    },
+
+    async findReadableByBarcode(input): Promise<ProductRecord | null> {
+      const barcode = validateBarcode(input.barcode)
+      const householdRow = await db
+        .prepare(`${PRODUCT_SELECT} WHERE p.barcode = ?1 AND p.household_id = ?2`)
+        .bind(barcode, input.householdId)
+        .first<ProductRow>()
+
+      if (householdRow) {
+        return toProduct(householdRow)
+      }
+
+      const globalRow = await db
+        .prepare(`${PRODUCT_SELECT} WHERE p.barcode = ?1 AND p.household_id IS NULL`)
+        .bind(barcode)
+        .first<ProductRow>()
+
+      return globalRow ? toProduct(globalRow) : null
+    },
+
+    async importExternalProduct(input): Promise<ProductRecord> {
+      const barcode = validateBarcode(input.barcode)
+      const existing = await db
+        .prepare(`${PRODUCT_SELECT} WHERE p.barcode = ?1 AND p.household_id IS NULL`)
+        .bind(barcode)
+        .first<ProductRow>()
+
+      if (existing) {
+        await persistNutritionIfMissing(existing.id, input.nutrition, nowIso())
+        return (await readById(existing.id)) ?? toProduct(existing)
+      }
+
+      const now = nowIso()
+      const plan = planExternalProduct({
+        id: newId(),
+        barcode,
+        catalog: input.catalog,
+        productType: input.productType,
+        name: input.name,
+        brand: input.brand,
+        unit: input.unit,
+        imageUrl: input.imageUrl,
+        packageQuantity: input.packageQuantity,
+        packageUnit: input.packageUnit,
+        now,
+      })
+
+      const statements = [
+        db
+          .prepare(
+            `INSERT INTO products (
+               id, household_id, barcode, name, normalized_name, brand, default_unit, source,
+               image_url, external_catalog, external_product_type, package_quantity, package_unit,
+               external_fetched_at, created_at, updated_at
+             ) VALUES (?1, NULL, ?2, ?3, ?4, ?5, ?6, 'open_food_facts', ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13)`,
+          )
+          .bind(
+            plan.id,
+            plan.barcode,
+            plan.name,
+            plan.normalizedName,
+            plan.brand,
+            plan.defaultUnit,
+            plan.imageUrl,
+            plan.externalCatalog,
+            plan.externalProductType,
+            plan.packageQuantity,
+            plan.packageUnit,
+            plan.externalFetchedAt,
+            plan.createdAt,
+          ),
+      ]
+
+      if (input.nutrition && !isEmptyNutrition(input.nutrition)) {
+        statements.push(
+          db
+            .prepare(
+              `INSERT OR IGNORE INTO product_nutrition (
+                 product_id, energy_kcal_100g, protein_g_100g, carbohydrates_g_100g, fat_g_100g,
+                 sugars_g_100g, fiber_g_100g, salt_g_100g, serving_size,
+                 energy_kcal_serving, protein_g_serving, carbohydrates_g_serving, fat_g_serving, updated_at
+               ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)`,
+            )
+            .bind(...nutritionBindValues(plan.id, input.nutrition, now)),
+        )
+      }
+
+      try {
+        await db.batch(statements)
+      } catch (error) {
+        if (!isUniqueConstraintError(error)) {
+          throw error
+        }
+
+        const raced = await db
+          .prepare(`${PRODUCT_SELECT} WHERE p.barcode = ?1 AND p.household_id IS NULL`)
+          .bind(barcode)
+          .first<ProductRow>()
+
+        if (!raced) {
+          throw error
+        }
+
+        await persistNutritionIfMissing(raced.id, input.nutrition, nowIso())
+        return (await readById(raced.id)) ?? toProduct(raced)
+      }
+
+      return (await readById(plan.id)) ?? {
+        id: plan.id,
+        name: plan.name,
+        brand: plan.brand,
+        unit: plan.defaultUnit,
+        barcode: plan.barcode,
+        imageUrl: plan.imageUrl,
+        source: 'open_food_facts',
+        externalCatalog: plan.externalCatalog,
+        externalProductType: plan.externalProductType,
+        packageQuantity: plan.packageQuantity,
+        packageUnit: plan.packageUnit,
+        nutrition: input.nutrition && !isEmptyNutrition(input.nutrition) ? input.nutrition : null,
+      }
     },
   }
 }

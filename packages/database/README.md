@@ -28,6 +28,8 @@ Commands from the repo root. Wrangler config is `apps/web/wrangler.jsonc`.
 
 `0005_inventory_mvp.sql` creates `products`, `inventory_lots`, `inventory_history`, `inventory_settings`, and `inventory_conflict_abort` (a persistence-only CHECK guard used to abort stale consumption batches).
 
+`0006_open_facts.sql` adds nullable Open Facts metadata on `products` (`image_url`, `external_catalog`, `external_product_type`, `package_quantity`, `package_unit`, `external_fetched_at`) and `product_nutrition` (source per-100g / serving nutrients; missing values stay NULL). Existing inventory rows are not rebuilt. `products.source = 'open_food_facts'` remains the historical Open Facts import path; `external_catalog` distinguishes Open Food Facts from Open Products Facts.
+
 D1 adapters live in `adapters/d1/` and implement `@pantry/core` ports. They must not be imported from `packages/core`.
 
 ## Portability

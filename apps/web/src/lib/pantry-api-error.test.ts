@@ -7,6 +7,8 @@ import {
   NETWORK_PANTRY_FAILURE_MESSAGE,
   PRODUCT_NAME_INVALID_MESSAGE,
   STOCK_CONFLICT_MESSAGE,
+  CATALOG_UNAVAILABLE_MESSAGE,
+  BARCODE_INVALID_MESSAGE,
   insufficientStockMessage,
   mapPantryApiError,
 } from './pantry-api-error'
@@ -23,6 +25,12 @@ test('maps household, location, and inventory API codes to Romanian copy', () =>
   )
   expect(mapPantryApiError(new PantryApiError(409, 'STOCK_CONFLICT', 'STOCK_CONFLICT'))).toBe(
     STOCK_CONFLICT_MESSAGE,
+  )
+  expect(mapPantryApiError(new PantryApiError(400, 'Invalid barcode', 'INVALID_BARCODE'))).toBe(
+    BARCODE_INVALID_MESSAGE,
+  )
+  expect(mapPantryApiError(new PantryApiError(503, 'Catalog temporarily unavailable', 'CATALOG_UNAVAILABLE'))).toBe(
+    CATALOG_UNAVAILABLE_MESSAGE,
   )
   expect(
     mapPantryApiError(new PantryApiError(409, 'INSUFFICIENT_STOCK', 'INSUFFICIENT_STOCK', 100)),

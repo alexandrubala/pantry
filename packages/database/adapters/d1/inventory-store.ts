@@ -6,9 +6,11 @@ import {
   parseExpiresOn,
   validateQuantity,
   type ConsumableLot,
+  type ExternalCatalogId,
   type InventoryHistoryEntry,
   type InventoryItem,
   type InventoryStore,
+  type ProductNutrition,
   type ProductRecord,
   type Unit,
 } from '@pantry/core'
@@ -21,6 +23,22 @@ type LotJoinRow = {
   product_name: string
   product_brand: string | null
   product_unit: Unit
+  product_barcode: string | null
+  product_image_url: string | null
+  product_external_catalog: ExternalCatalogId | null
+  energy_kcal_100g: number | null
+  protein_g_100g: number | null
+  carbohydrates_g_100g: number | null
+  fat_g_100g: number | null
+  sugars_g_100g: number | null
+  fiber_g_100g: number | null
+  salt_g_100g: number | null
+  serving_size: string | null
+  energy_kcal_serving: number | null
+  protein_g_serving: number | null
+  carbohydrates_g_serving: number | null
+  fat_g_serving: number | null
+  nutrition_updated_at: string | null
   location_id: string
   location_name: string
   quantity: number
@@ -68,6 +86,29 @@ function isConflictGuardError(error: unknown): boolean {
   return /inventory_conflict_abort|CHECK constraint failed/i.test(error.message)
 }
 
+function toInventoryNutrition(row: LotJoinRow): ProductNutrition | null {
+  if (!row.nutrition_updated_at) {
+    return null
+  }
+
+  const nutrition: ProductNutrition = {
+    energyKcal100g: row.energy_kcal_100g,
+    proteinG100g: row.protein_g_100g,
+    carbohydratesG100g: row.carbohydrates_g_100g,
+    fatG100g: row.fat_g_100g,
+    sugarsG100g: row.sugars_g_100g,
+    fiberG100g: row.fiber_g_100g,
+    saltG100g: row.salt_g_100g,
+    servingSize: row.serving_size,
+    energyKcalServing: row.energy_kcal_serving,
+    proteinGServing: row.protein_g_serving,
+    carbohydratesGServing: row.carbohydrates_g_serving,
+    fatGServing: row.fat_g_serving,
+  }
+
+  return nutrition
+}
+
 function aggregateItems(rows: LotJoinRow[]): InventoryItem[] {
   const items = new Map<string, InventoryItem>()
 
@@ -78,6 +119,10 @@ function aggregateItems(rows: LotJoinRow[]): InventoryItem[] {
         name: row.product_name,
         brand: row.product_brand,
         unit: row.product_unit,
+        barcode: row.product_barcode,
+        imageUrl: row.product_image_url,
+        externalCatalog: row.product_external_catalog,
+        nutrition: toInventoryNutrition(row),
       },
       totalQuantity: 0,
       nearestExpiry: null,
@@ -165,6 +210,22 @@ export function createD1InventoryStore(db: D1DatabaseLike): InventoryStore {
            p.name AS product_name,
            p.brand AS product_brand,
            p.default_unit AS product_unit,
+           p.barcode AS product_barcode,
+           p.image_url AS product_image_url,
+           p.external_catalog AS product_external_catalog,
+           n.energy_kcal_100g AS energy_kcal_100g,
+           n.protein_g_100g AS protein_g_100g,
+           n.carbohydrates_g_100g AS carbohydrates_g_100g,
+           n.fat_g_100g AS fat_g_100g,
+           n.sugars_g_100g AS sugars_g_100g,
+           n.fiber_g_100g AS fiber_g_100g,
+           n.salt_g_100g AS salt_g_100g,
+           n.serving_size AS serving_size,
+           n.energy_kcal_serving AS energy_kcal_serving,
+           n.protein_g_serving AS protein_g_serving,
+           n.carbohydrates_g_serving AS carbohydrates_g_serving,
+           n.fat_g_serving AS fat_g_serving,
+           n.updated_at AS nutrition_updated_at,
            l.location_id AS location_id,
            loc.name AS location_name,
            l.quantity AS quantity,
@@ -172,6 +233,7 @@ export function createD1InventoryStore(db: D1DatabaseLike): InventoryStore {
          FROM inventory_lots l
          INNER JOIN products p ON p.id = l.product_id
          INNER JOIN locations loc ON loc.id = l.location_id
+         LEFT JOIN product_nutrition n ON n.product_id = p.id
          WHERE l.household_id = ?1
            AND loc.household_id = ?1
            AND (p.household_id = ?1 OR p.household_id IS NULL)
