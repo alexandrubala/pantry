@@ -107,6 +107,55 @@ test('GET /api/v1/households only returns memberships for the current user', asy
   expect(JSON.stringify(body)).not.toMatch(/Casa B/)
 })
 
+test('PUT /api/v1/household/active switches between households the user belongs to', async () => {
+  const db = openPantryDb()
+  insertUser(db, 'user-a', 'A', 'a@example.invalid')
+  insertProfile(db, 'user-a', 'A')
+  resolveCurrentUserMock.mockResolvedValue({ id: 'user-a', name: 'A' })
+
+  const first = await app.request(
+    '/api/v1/households',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Casa A' }),
+    },
+    envWithDb(db),
+  )
+  const second = await app.request(
+    '/api/v1/households',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Casa A2' }),
+    },
+    envWithDb(db),
+  )
+  const householdA = (await first.json()).household.id as string
+  const householdA2 = (await second.json()).household.id as string
+
+  const switched = await app.request(
+    '/api/v1/household/active',
+    {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ householdId: householdA }),
+    },
+    envWithDb(db),
+  )
+  expect(switched.status).toBe(200)
+  const body = await switched.json()
+  expect(body.household).toEqual({ id: householdA, name: 'Casa A', role: 'owner' })
+  expect(db.prepare('SELECT active_household_id FROM profiles WHERE id = ?').get('user-a')).toEqual({
+    active_household_id: householdA,
+  })
+
+  const locations = await app.request('/api/v1/locations', {}, envWithDb(db))
+  const locationsBody = await locations.json()
+  expect(locationsBody.locations).toHaveLength(7)
+  expect(householdA2).not.toBe(householdA)
+})
+
 test('PUT /api/v1/household/active rejects a household the user does not belong to', async () => {
   const db = openPantryDb()
   insertUser(db, 'user-a', 'A', 'a@example.invalid')
