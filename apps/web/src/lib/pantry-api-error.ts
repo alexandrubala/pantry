@@ -18,9 +18,25 @@ export const SHOPPING_UNIT_CONFLICT_MESSAGE =
 export const BARCODE_INVALID_MESSAGE = 'Introdu un cod de bare valid.'
 export const BARCODE_TAKEN_MESSAGE = 'Există deja un produs cu acest cod de bare.'
 export const CATALOG_UNAVAILABLE_MESSAGE = 'Nu am putut verifica produsul acum. Încearcă din nou.'
+export const EMPTY_INVENTORY_MESSAGE = 'Nu ai produse în inventar. Adaugă sau scanează ceva înainte să gătești.'
+export const AI_RATE_LIMIT_MESSAGE = 'Ai atins limita de 10 rețete pe oră. Încearcă mai târziu.'
+export const AI_GENERATION_FAILED_MESSAGE =
+  'Nu am putut genera o rețetă validă din inventarul tău. Încearcă din nou.'
+export const AI_UNAVAILABLE_MESSAGE = 'Pantry nu poate genera o rețetă acum. Încearcă din nou.'
+export const CONSTRAINT_NOT_MET_MESSAGE =
+  'Nu am găsit o rețetă care să respecte țintele de calorii sau proteine. Încearcă din nou.'
 
 export function insufficientStockMessage(availableLabel: string): string {
   return `Nu ai suficient stoc. Disponibil: ${availableLabel}`
+}
+
+export function aiRateLimitMessage(retryAfter: number | null): string {
+  if (retryAfter == null || retryAfter <= 0) {
+    return AI_RATE_LIMIT_MESSAGE
+  }
+
+  const minutes = Math.max(1, Math.ceil(retryAfter / 60))
+  return `Ai atins limita de 10 rețete pe oră. Încearcă din nou în ${minutes} min.`
 }
 
 export function mapPantryApiError(error: unknown): string {
@@ -62,6 +78,17 @@ export function mapPantryApiError(error: unknown): string {
         return BARCODE_TAKEN_MESSAGE
       case 'CATALOG_UNAVAILABLE':
         return CATALOG_UNAVAILABLE_MESSAGE
+      case 'EMPTY_INVENTORY':
+        return EMPTY_INVENTORY_MESSAGE
+      case 'AI_RATE_LIMIT':
+        return aiRateLimitMessage(error.retryAfter)
+      case 'AI_GENERATION_FAILED':
+      case 'INVALID_GENERATION_REQUEST':
+        return AI_GENERATION_FAILED_MESSAGE
+      case 'AI_UNAVAILABLE':
+        return AI_UNAVAILABLE_MESSAGE
+      case 'CONSTRAINT_NOT_MET':
+        return CONSTRAINT_NOT_MET_MESSAGE
       case 'INSUFFICIENT_STOCK':
         return insufficientStockMessage(
           typeof error.available === 'number' ? String(error.available) : '0',

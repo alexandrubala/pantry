@@ -99,3 +99,47 @@ export type {
   InventoryStore,
 } from './ports/inventory-store.js'
 export type { ShoppingItem, ShoppingList, ShoppingStore } from './ports/shopping-store.js'
+export type { AiProvider, AiRecipeGenerationInput } from './ports/ai-provider.js'
+export type {
+  AiGenerationReservation,
+  RecipeStore,
+} from './ports/recipe-store.js'
+export {
+  AI_GENERATION_LIMIT_PER_HOUR,
+  DEFAULT_RECIPE_SERVINGS,
+  MAX_CALORIES_PER_SERVING,
+  MAX_PROTEIN_PER_SERVING,
+  MAX_RECIPE_PREFERENCE_LENGTH,
+  MAX_RECIPE_SERVINGS,
+  MAX_RECIPE_TIME_MINUTES,
+  MIN_RECIPE_SERVINGS,
+  RECIPE_MODES,
+  type AiRecipeCandidate,
+  type AiRecipeIngredient,
+  type ConstraintVerification,
+  type GeneratedRecipe,
+  type InventoryProductContext,
+  type RecipeGenerationRequest,
+  type RecipeIngredient,
+  type RecipeMode,
+  type RecipeNutrition,
+  type RecipeNutrientTotals,
+  type RecipeSummary,
+  type SavedRecipe,
+} from './recipe/types.js'
+export { AI_RECIPE_JSON_SCHEMA } from './recipe/schema.js'
+export { parseRecipeGenerationRequest } from './recipe/request.js'
+export { buildInventoryContext } from './recipe/context.js'
+export {
+  mergeCandidateIngredients,
+  parseAiRecipeCandidate,
+  validateCandidateAgainstInventory,
+} from './recipe/candidate.js'
+export { calculateRecipeNutrition } from './recipe/nutrition.js'
+export { verifyNutritionConstraints } from './recipe/constraints.js'
+export { generateRecipeFromInventory } from './recipe/generate.js'
+export {
+  aiGenerationLimitPerHour,
+  aiRateLimitRetryAfterSeconds,
+  aiRateLimitWindowStart,
+} from './recipe/rate-limit.js'

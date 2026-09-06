@@ -15,6 +15,7 @@ import {
   type Unit,
 } from '@pantry/core'
 import type { D1DatabaseLike } from './d1-like.js'
+import { isConflictGuardError, lotConsumptionStatements } from './lot-consumption.js'
 import { createD1ProductStore } from './product-store.js'
 
 type LotJoinRow = {
@@ -78,14 +79,6 @@ function newId(): string {
 
 function nowIso(): string {
   return new Date().toISOString()
-}
-
-function isConflictGuardError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false
-  }
-
-  return /inventory_conflict_abort|CHECK constraint failed/i.test(error.message)
 }
 
 function toInventoryNutrition(row: LotJoinRow): ProductNutrition | null {
@@ -362,68 +355,14 @@ export function createD1InventoryStore(db: D1DatabaseLike): InventoryStore {
       }
 
       const now = nowIso()
-      const statements = [
-        ...plan.allocations.map((allocation) => {
-          const expectedQuantity = allocation.quantity + allocation.remainingQuantity
-          return db
-            .prepare(
-              `INSERT INTO inventory_conflict_abort (reason)
-               SELECT 'STALE_LOT'
-               WHERE NOT EXISTS (
-                 SELECT 1
-                 FROM inventory_lots
-                 WHERE id = ?1
-                   AND household_id = ?2
-                   AND product_id = ?3
-                   AND quantity = ?4
-               )`,
-            )
-            .bind(allocation.lotId, input.householdId, product.id, expectedQuantity)
-        }),
-        ...plan.allocations.map((allocation) => {
-          if (allocation.remainingQuantity <= 1e-9) {
-            return db
-              .prepare(
-                `DELETE FROM inventory_lots
-                 WHERE id = ?1 AND household_id = ?2 AND product_id = ?3`,
-              )
-              .bind(allocation.lotId, input.householdId, product.id)
-          }
-
-          return db
-            .prepare(
-              `UPDATE inventory_lots
-               SET quantity = ?1, updated_at = ?2
-               WHERE id = ?3 AND household_id = ?4 AND product_id = ?5`,
-            )
-            .bind(
-              allocation.remainingQuantity,
-              now,
-              allocation.lotId,
-              input.householdId,
-              product.id,
-            )
-        }),
-        ...plan.allocations.map((allocation) =>
-          db
-            .prepare(
-              `INSERT INTO inventory_history (
-                 id, household_id, product_id, location_id, user_id, action, delta_quantity, unit, expires_on, created_at
-               ) VALUES (?1, ?2, ?3, ?4, ?5, 'consume', ?6, ?7, ?8, ?9)`,
-            )
-            .bind(
-              newId(),
-              input.householdId,
-              product.id,
-              allocation.locationId,
-              input.userId,
-              -allocation.quantity,
-              product.unit,
-              allocation.expiresOn,
-              now,
-            ),
-        ),
-      ]
+      const statements = lotConsumptionStatements(db, {
+        householdId: input.householdId,
+        userId: input.userId,
+        productId: product.id,
+        unit: product.unit,
+        allocations: plan.allocations,
+        now,
+      })
 
       try {
         await db.batch(statements)

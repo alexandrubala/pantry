@@ -14,6 +14,12 @@ export const DOMAIN_ERROR_CODES = [
   'INSUFFICIENT_STOCK',
   'STOCK_CONFLICT',
   'SHOPPING_UNIT_CONFLICT',
+  'EMPTY_INVENTORY',
+  'INVALID_GENERATION_REQUEST',
+  'AI_RATE_LIMIT',
+  'AI_GENERATION_FAILED',
+  'AI_UNAVAILABLE',
+  'CONSTRAINT_NOT_MET',
 ] as const
 
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number]
@@ -21,12 +27,18 @@ export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number]
 export class DomainError extends Error {
   readonly code: DomainErrorCode
   readonly available?: number
+  readonly retryAfter?: number
 
-  constructor(code: DomainErrorCode, message: string, options?: { available?: number }) {
+  constructor(
+    code: DomainErrorCode,
+    message: string,
+    options?: { available?: number; retryAfter?: number },
+  ) {
     super(message)
     this.name = 'DomainError'
     this.code = code
     this.available = options?.available
+    this.retryAfter = options?.retryAfter
   }
 }
 
@@ -34,7 +46,9 @@ export function isDomainError(error: unknown): error is DomainError {
   return error instanceof DomainError
 }
 
-export function httpStatusForDomainError(code: DomainErrorCode): 400 | 404 | 409 {
+export function httpStatusForDomainError(
+  code: DomainErrorCode,
+): 400 | 404 | 409 | 422 | 429 | 503 {
   switch (code) {
     case 'INVALID_HOUSEHOLD_NAME':
     case 'INVALID_LOCATION_NAME':
@@ -44,6 +58,7 @@ export function httpStatusForDomainError(code: DomainErrorCode): 400 | 404 | 409
     case 'INVALID_BARCODE':
     case 'INVALID_QUANTITY':
     case 'INVALID_EXPIRY':
+    case 'INVALID_GENERATION_REQUEST':
       return 400
     case 'NOT_FOUND':
       return 404
@@ -53,6 +68,14 @@ export function httpStatusForDomainError(code: DomainErrorCode): 400 | 404 | 409
     case 'INSUFFICIENT_STOCK':
     case 'STOCK_CONFLICT':
     case 'SHOPPING_UNIT_CONFLICT':
+    case 'EMPTY_INVENTORY':
       return 409
+    case 'AI_GENERATION_FAILED':
+    case 'CONSTRAINT_NOT_MET':
+      return 422
+    case 'AI_RATE_LIMIT':
+      return 429
+    case 'AI_UNAVAILABLE':
+      return 503
   }
 }

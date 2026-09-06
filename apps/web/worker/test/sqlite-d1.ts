@@ -74,6 +74,7 @@ export function openPantryDb() {
   db.exec(readFileSync(join(migrationsDir(), '0005_inventory_mvp.sql'), 'utf8'))
   db.exec(readFileSync(join(migrationsDir(), '0006_open_facts.sql'), 'utf8'))
   db.exec(readFileSync(join(migrationsDir(), '0007_shopping.sql'), 'utf8'))
+  db.exec(readFileSync(join(migrationsDir(), '0008_ai_cook.sql'), 'utf8'))
   return db
 }
 
@@ -91,10 +92,19 @@ export function insertProfile(db: DatabaseSync, id: string, displayName: string)
   ).run(id, displayName)
 }
 
-export function envWithDb(db: DatabaseSync) {
+export function envWithDb(db: DatabaseSync, aiRun?: (model: string, inputs: unknown, options?: unknown) => Promise<unknown>) {
   return {
     DB: sqliteAsD1(db),
     BETTER_AUTH_SECRET: TEST_SECRET,
     BETTER_AUTH_URL: TEST_URL,
+    AI_MODEL: '@cf/meta/llama-4-scout-17b-16e-instruct',
+    AI: {
+      async run(model: string, inputs: unknown, options?: unknown) {
+        if (!aiRun) {
+          throw new Error('AI binding not stubbed')
+        }
+        return aiRun(model, inputs, options)
+      },
+    },
   }
 }

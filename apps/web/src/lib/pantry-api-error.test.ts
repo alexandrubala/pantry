@@ -11,6 +11,8 @@ import {
   CATALOG_UNAVAILABLE_MESSAGE,
   BARCODE_INVALID_MESSAGE,
   insufficientStockMessage,
+  EMPTY_INVENTORY_MESSAGE,
+  AI_UNAVAILABLE_MESSAGE,
   mapPantryApiError,
 } from './pantry-api-error'
 
@@ -35,6 +37,12 @@ test('maps household, location, and inventory API codes to Romanian copy', () =>
   )
   expect(mapPantryApiError(new PantryApiError(503, 'Catalog temporarily unavailable', 'CATALOG_UNAVAILABLE'))).toBe(
     CATALOG_UNAVAILABLE_MESSAGE,
+  )
+  expect(mapPantryApiError(new PantryApiError(409, 'EMPTY_INVENTORY', 'EMPTY_INVENTORY'))).toBe(
+    EMPTY_INVENTORY_MESSAGE,
+  )
+  expect(mapPantryApiError(new PantryApiError(503, 'AI_UNAVAILABLE', 'AI_UNAVAILABLE'))).toBe(
+    AI_UNAVAILABLE_MESSAGE,
   )
   expect(
     mapPantryApiError(new PantryApiError(409, 'INSUFFICIENT_STOCK', 'INSUFFICIENT_STOCK', 100)),

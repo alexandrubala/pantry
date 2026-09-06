@@ -1,5 +1,6 @@
 import type {
   ActiveHousehold,
+  ConstraintVerification,
   ExternalCatalogId,
   HouseholdSummary,
   InventoryHistoryEntry,
@@ -7,6 +8,8 @@ import type {
   LocationRecord,
   ProductNutrition,
   ProductRecord,
+  RecipeMode,
+  RecipeSummary,
   ShoppingItem,
   ShoppingList,
   Unit,
@@ -196,4 +199,76 @@ export function removeShoppingItem(itemId: string) {
 
 export function clearCompletedShoppingItems() {
   return apiSend<ShoppingListResponse>('/api/v1/shopping/clear-completed', 'POST', {})
+}
+
+export type RecipeNutritionView = {
+  complete: boolean
+  calculableIngredients: number
+  totalIngredients: number
+  perServing: {
+    kcal: number | null
+    protein: number | null
+    carbs: number | null
+    fat: number | null
+  }
+}
+
+export type RecipeView = {
+  id: string
+  title: string
+  description: string | null
+  servings: number
+  timeMinutes: number | null
+  ingredients: Array<{
+    productId: string | null
+    name: string
+    quantity: number
+    unit: Unit
+  }>
+  instructions: string[]
+  notes: string | null
+  nutrition: RecipeNutritionView
+  constraintVerification: ConstraintVerification
+  createdAt: string
+}
+
+export type GenerateRecipeInput = {
+  servings: number
+  mode: RecipeMode
+  maxCaloriesPerServing?: number
+  minProteinPerServing?: number
+  maxTimeMinutes?: number
+  preference?: string
+}
+
+export type GenerateRecipeResponse = {
+  recipe: RecipeView
+}
+
+export type RecipesResponse = {
+  recipes: RecipeSummary[]
+}
+
+export type RecipeResponse = {
+  recipe: RecipeView
+}
+
+export type CookRecipeResponse = {
+  cooked: true
+}
+
+export function generateRecipe(input: GenerateRecipeInput) {
+  return apiSend<GenerateRecipeResponse>('/api/v1/ai/recipes/generate', 'POST', input)
+}
+
+export function getRecipes() {
+  return apiGet<RecipesResponse>('/api/v1/recipes')
+}
+
+export function getRecipe(id: string) {
+  return apiGet<RecipeResponse>(`/api/v1/recipes/${encodeURIComponent(id)}`)
+}
+
+export function cookRecipe(id: string) {
+  return apiSend<CookRecipeResponse>(`/api/v1/recipes/${encodeURIComponent(id)}/cook`, 'POST', {})
 }

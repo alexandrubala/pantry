@@ -10,6 +10,7 @@
   // Public non-secret vars may be committed here.
   "vars": {
     "BETTER_AUTH_URL": "https://pantry.alexandrubala94.workers.dev",
+    "AI_MODEL": "@cf/meta/llama-4-scout-17b-16e-instruct",
   },
   // Vite plugin sets assets.directory from the client build. Do not set it here.
   // /api/* → Worker first. Everything else → static assets / React SPA fallback.
@@ -35,4 +36,7 @@
       "bucket_name": "pantry-assets",
     },
   ],
+  "ai": {
+    "binding": "AI",
+  },
 }
