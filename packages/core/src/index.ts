@@ -17,12 +17,28 @@ export {
   type DefaultLocation,
 } from './household/defaults.js'
 export {
+  assertHouseholdMember,
+  assertHouseholdOwner,
   assertMemberAccess,
   planHouseholdCreation,
   selectFallbackHouseholdId,
   type PlannedHouseholdCreation,
   type PlannedLocation,
 } from './household/plan.js'
+export {
+  INVITE_ROLE,
+  INVITE_TOKEN_BYTES,
+  INVITE_TTL_MS,
+  assertInviteAcceptable,
+  deriveInviteStatus,
+  generateInviteToken,
+  hashInviteToken,
+  inviteExpiresAt,
+  isInviteTokenFormat,
+  requireInviteToken,
+  type InviteStatus,
+  type InviteTimestamps,
+} from './household/invite.js'
 export {
   MAX_LOCATION_NAME_LENGTH,
   normalizeLocationName,
@@ -107,6 +123,13 @@ export type {
   HouseholdSummary,
   LocationRecord,
 } from './ports/household-store.js'
+export type {
+  CreatedHouseholdInvite,
+  HouseholdInviteRecord,
+  HouseholdInviteSummary,
+  HouseholdMemberRecord,
+  HouseholdSharingStore,
+} from './ports/household-sharing-store.js'
 export type { ProductRecord, ProductStore } from './ports/product-store.js'
 export type {
   ExpiringLot,

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { DEFAULT_LOCATIONS, nextLocationSortOrder } from './defaults.js'
-import { planHouseholdCreation, selectFallbackHouseholdId } from './plan.js'
+import { planHouseholdCreation, selectFallbackHouseholdId, assertHouseholdOwner } from './plan.js'
 
 test('defines seven Romanian default locations with stable sort order', () => {
   expect(DEFAULT_LOCATIONS).toHaveLength(7)
@@ -67,4 +67,12 @@ test('selectFallbackHouseholdId keeps a valid active household and otherwise pic
   expect(selectFallbackHouseholdId(memberships, 'h2')).toBe('h2')
   expect(selectFallbackHouseholdId(memberships, 'missing')).toBe('h1')
   expect(selectFallbackHouseholdId([], 'h1')).toBeNull()
+})
+
+test('assertHouseholdOwner forbids members and hides missing memberships', () => {
+  const owner = { householdId: 'h1', name: 'Casa', role: 'owner' as const }
+  const member = { householdId: 'h1', name: 'Casa', role: 'member' as const }
+  expect(assertHouseholdOwner(owner)).toBeUndefined()
+  expect(() => assertHouseholdOwner(member)).toThrowError(/Forbidden/)
+  expect(() => assertHouseholdOwner(null)).toThrowError(/Not found/)
 })

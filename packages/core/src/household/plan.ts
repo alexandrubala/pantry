@@ -91,3 +91,18 @@ export function assertMemberAccess(membership: { userId: string } | null): asser
     throw new DomainError('NOT_FOUND', 'Not found')
   }
 }
+
+export function assertHouseholdMember<T>(membership: T | null): asserts membership is T {
+  if (!membership) {
+    throw new DomainError('NOT_FOUND', 'Not found')
+  }
+}
+
+export function assertHouseholdOwner<T extends { role: string }>(
+  membership: T | null,
+): asserts membership is T {
+  assertHouseholdMember(membership)
+  if (membership.role !== 'owner') {
+    throw new DomainError('FORBIDDEN', 'Forbidden')
+  }
+}

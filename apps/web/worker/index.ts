@@ -10,12 +10,14 @@ import { profile } from './routes/profile.js'
 import { shopping } from './routes/shopping.js'
 import { ai } from './routes/ai.js'
 import { recipes } from './routes/recipes.js'
+import { householdSharing } from './routes/household-sharing.js'
 
 const app = new Hono<{ Bindings: CloudflareBindings }>()
 
 app.route('/api/v1', health)
 app.route('/api/v1', profile)
 app.route('/api/v1', households)
+app.route('/api/v1', householdSharing)
 app.route('/api/v1', locations)
 app.route('/api/v1', products)
 app.route('/api/v1', barcodes)

@@ -15,6 +15,9 @@ import {
   insufficientStockMessage,
   EMPTY_INVENTORY_MESSAGE,
   AI_UNAVAILABLE_MESSAGE,
+  FORBIDDEN_MESSAGE,
+  INVITE_EXPIRED_MESSAGE,
+  OWNER_CANNOT_LEAVE_MESSAGE,
   mapPantryApiError,
 } from './pantry-api-error'
 
@@ -49,6 +52,13 @@ test('maps household, location, and inventory API codes to Romanian copy', () =>
   )
   expect(mapPantryApiError(new PantryApiError(503, 'AI_UNAVAILABLE', 'AI_UNAVAILABLE'))).toBe(
     AI_UNAVAILABLE_MESSAGE,
+  )
+  expect(mapPantryApiError(new PantryApiError(403, 'Forbidden', 'FORBIDDEN'))).toBe(FORBIDDEN_MESSAGE)
+  expect(mapPantryApiError(new PantryApiError(410, 'Invite expired', 'INVITE_EXPIRED'))).toBe(
+    INVITE_EXPIRED_MESSAGE,
+  )
+  expect(mapPantryApiError(new PantryApiError(409, 'Owner cannot leave', 'OWNER_CANNOT_LEAVE'))).toBe(
+    OWNER_CANNOT_LEAVE_MESSAGE,
   )
   expect(
     mapPantryApiError(new PantryApiError(409, 'INSUFFICIENT_STOCK', 'INSUFFICIENT_STOCK', 100)),

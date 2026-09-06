@@ -4,6 +4,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { SessionLoading } from '../components/SessionLoading'
 import { authClient } from '../lib/auth-client'
 import { mapRegisterError } from '../lib/register-error'
+import { readReturnTo, resolvePostLoginPath } from '../lib/auth-redirect'
 import { validateRegisterInput } from '../lib/register-validation'
 
 export function RegisterPage() {
@@ -15,6 +16,7 @@ export function RegisterPage() {
   const confirmPasswordId = useId()
   const errorId = useId()
   const { data: session, isPending } = authClient.useSession()
+  const postAuthPath = resolvePostLoginPath(readReturnTo(location.state))
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -30,7 +32,7 @@ export function RegisterPage() {
   }
 
   if (session?.user) {
-    return <Navigate replace to="/inventory" />
+    return <Navigate replace to={postAuthPath} />
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -66,7 +68,7 @@ export function RegisterPage() {
         return
       }
 
-      await navigate('/inventory', { replace: true })
+      await navigate(postAuthPath, { replace: true })
     } catch (cause) {
       setFormError(mapRegisterError(cause))
     } finally {

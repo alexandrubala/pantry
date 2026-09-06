@@ -28,6 +28,13 @@ export const AI_GENERATION_FAILED_MESSAGE =
 export const AI_UNAVAILABLE_MESSAGE = 'Pantry nu poate genera o rețetă acum. Încearcă din nou.'
 export const CONSTRAINT_NOT_MET_MESSAGE =
   'Nu am găsit o rețetă care să respecte țintele de calorii sau proteine. Încearcă din nou.'
+export const FORBIDDEN_MESSAGE = 'Nu ai permisiunea să faci această acțiune.'
+export const OWNER_CANNOT_LEAVE_MESSAGE =
+  'Proprietarul nu poate părăsi casa. Transferul proprietății va fi disponibil ulterior.'
+export const OWNER_CANNOT_REMOVE_SELF_MESSAGE = 'Nu poți să te elimini din casă.'
+export const INVITE_EXPIRED_MESSAGE = 'Invitația a expirat.'
+export const INVITE_REVOKED_MESSAGE = 'Invitația a fost anulată.'
+export const INVITE_ALREADY_ACCEPTED_MESSAGE = 'Invitația a fost deja folosită.'
 
 export function insufficientStockMessage(availableLabel: string): string {
   return `Nu ai suficient stoc. Disponibil: ${availableLabel}`
@@ -98,6 +105,18 @@ export function mapPantryApiError(error: unknown): string {
         return AI_UNAVAILABLE_MESSAGE
       case 'CONSTRAINT_NOT_MET':
         return CONSTRAINT_NOT_MET_MESSAGE
+      case 'FORBIDDEN':
+        return FORBIDDEN_MESSAGE
+      case 'OWNER_CANNOT_LEAVE':
+        return OWNER_CANNOT_LEAVE_MESSAGE
+      case 'OWNER_CANNOT_REMOVE_SELF':
+        return OWNER_CANNOT_REMOVE_SELF_MESSAGE
+      case 'INVITE_EXPIRED':
+        return INVITE_EXPIRED_MESSAGE
+      case 'INVITE_REVOKED':
+        return INVITE_REVOKED_MESSAGE
+      case 'INVITE_ALREADY_ACCEPTED':
+        return INVITE_ALREADY_ACCEPTED_MESSAGE
       case 'INSUFFICIENT_STOCK':
         return insufficientStockMessage(
           typeof error.available === 'number' ? String(error.available) : '0',

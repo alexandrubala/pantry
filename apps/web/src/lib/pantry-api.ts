@@ -343,3 +343,76 @@ export function getRecipe(id: string) {
 export function cookRecipe(id: string) {
   return apiSend<CookRecipeResponse>(`/api/v1/recipes/${encodeURIComponent(id)}/cook`, 'POST', {})
 }
+
+export type HouseholdMemberView = {
+  userId: string
+  name: string
+  email: string
+  role: 'owner' | 'member'
+  isCurrentUser: boolean
+}
+
+export type HouseholdMembersResponse = {
+  members: HouseholdMemberView[]
+}
+
+export type HouseholdInviteView = {
+  id: string
+  status: 'pending' | 'accepted' | 'expired' | 'revoked'
+  expiresAt: string
+  createdAt: string
+}
+
+export type HouseholdInvitesResponse = {
+  invites: HouseholdInviteView[]
+}
+
+export type CreateInviteResponse = {
+  invite: {
+    id: string
+    token: string
+    expiresAt: string
+  }
+}
+
+export type InvitePreviewResponse = {
+  valid: true
+  householdName: string
+  expiresAt: string
+}
+
+export type AcceptInviteResponse = {
+  household: ActiveHousehold
+}
+
+export function getHouseholdMembers() {
+  return apiGet<HouseholdMembersResponse>('/api/v1/household/members')
+}
+
+export function getHouseholdInvites() {
+  return apiGet<HouseholdInvitesResponse>('/api/v1/household/invites')
+}
+
+export function createHouseholdInvite() {
+  return apiSend<CreateInviteResponse>('/api/v1/household/invites', 'POST', {})
+}
+
+export function revokeHouseholdInvite(inviteId: string) {
+  return apiSend<void>(`/api/v1/household/invites/${encodeURIComponent(inviteId)}`, 'DELETE')
+}
+
+export function removeHouseholdMember(userId: string) {
+  return apiSend<void>(`/api/v1/household/members/${encodeURIComponent(userId)}`, 'DELETE')
+}
+
+export function leaveHousehold() {
+  return apiSend<void>('/api/v1/household/leave', 'POST', {})
+}
+
+export function getInvitePreview(token: string) {
+  return apiGet<InvitePreviewResponse>(`/api/v1/invites/${encodeURIComponent(token)}`)
+}
+
+export function acceptInvite(token: string) {
+  return apiSend<AcceptInviteResponse>(`/api/v1/invites/${encodeURIComponent(token)}/accept`, 'POST', {})
+}

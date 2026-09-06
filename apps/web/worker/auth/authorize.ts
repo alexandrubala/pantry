@@ -25,7 +25,7 @@ export function requireHouseholdOwner(
 ): HouseholdMembership {
   const current = requireHouseholdMember(membership)
   if (current.role !== ('owner' satisfies HouseholdRole)) {
-    throw new DomainError('NOT_FOUND', 'Not found')
+    throw new DomainError('FORBIDDEN', 'Forbidden')
   }
 
   return current

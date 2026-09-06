@@ -20,7 +20,9 @@ test('requireHouseholdMember hides missing memberships as not found', () => {
   expect(requireHouseholdMember(member)).toEqual(member)
 })
 
-test('requireHouseholdOwner hides non-owners as not found', () => {
+test('requireHouseholdOwner forbids members of the current household', () => {
   expect(() => requireHouseholdOwner(member)).toThrow(DomainError)
+  expect(() => requireHouseholdOwner(member)).toThrowError(/Forbidden/)
+  expect(() => requireHouseholdOwner(null)).toThrowError(/Not found/)
   expect(requireHouseholdOwner(owner)).toEqual(owner)
 })

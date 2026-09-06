@@ -4,6 +4,9 @@ import { readReturnTo, resolvePostLoginPath } from './auth-redirect'
 test('returns the captured in-app path after login', () => {
   expect(resolvePostLoginPath('/shopping')).toBe('/shopping')
   expect(resolvePostLoginPath('/scan?camera=1')).toBe('/scan?camera=1')
+  expect(resolvePostLoginPath('/invite/Tok_en-value-with_underscores-and-dashes123456')).toBe(
+    '/invite/Tok_en-value-with_underscores-and-dashes123456',
+  )
 })
 
 test('falls back to inventory for missing, auth, or unsafe destinations', () => {

@@ -1,4 +1,5 @@
 export { createD1HouseholdStore } from './household-store.js'
+export { createD1HouseholdSharingStore } from './household-sharing-store.js'
 export { createD1ProductStore } from './product-store.js'
 export { createD1InventoryStore } from './inventory-store.js'
 export { createD1ShoppingStore } from './shopping-store.js'

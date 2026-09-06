@@ -6,6 +6,8 @@ import { HouseholdApp } from './components/HouseholdApp'
 import { ProtectedApp } from './components/ProtectedApp'
 import { AiPage } from './pages/AiPage'
 import { InventoryPage } from './pages/InventoryPage'
+import { HouseholdPage } from './pages/HouseholdPage'
+import { InvitePage } from './pages/InvitePage'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { OnboardingPage } from './pages/OnboardingPage'
@@ -19,6 +21,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="invite/:token" element={<InvitePage />} />
         <Route element={<AuthLayout />}>
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
@@ -32,6 +35,7 @@ export default function App() {
               <Route path="scan" element={<ScanPage />} />
               <Route path="shopping" element={<ShoppingPage />} />
               <Route path="ai" element={<AiPage />} />
+              <Route path="household" element={<HouseholdPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Route>

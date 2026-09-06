@@ -34,6 +34,8 @@ Commands from the repo root. Wrangler config is `apps/web/wrangler.jsonc`.
 
 `0009_product_polish.sql` rebuilds `inventory_history` so `action` may be `move`, copies existing rows, and adds `inventory_lots_household_expires_idx`. `inventory_settings.minimum_quantity` is unchanged.
 
+`0010_household_sharing.sql` creates `invites` with `token_hash` (SHA-256 of the raw link token). Raw tokens are never stored. Invitation role is `member` only.
+
 D1 adapters live in `adapters/d1/` and implement `@pantry/core` ports. They must not be imported from `packages/core`.
 
 ## Portability
