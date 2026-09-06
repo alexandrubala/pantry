@@ -1,0 +1,11 @@
+# Local Worker secrets for Wrangler / Vite. Copy to `.dev.vars` and fill values.
+# Never commit `.dev.vars` or `.dev.vars.<environment>`.
+# Production secrets are set in Cloudflare, not in this repository.
+
+# Auth (not implemented yet — placeholders only)
+BETTER_AUTH_SECRET=
+BETTER_AUTH_URL=http://localhost:5173
+
+# Future:
+# EMAIL_API_KEY=
+# AI_PROVIDER_API_KEY=

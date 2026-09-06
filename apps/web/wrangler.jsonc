@@ -3,6 +3,7 @@
   "name": "pantry",
   "compatibility_date": "2026-09-05",
   "main": "./worker/index.ts",
+  // Secrets belong in Cloudflare / .dev.vars, never in this file (no vars, no committed values).
   // Vite plugin sets assets.directory from the client build. Do not set it here.
   // /api/* → Worker first. Everything else → static assets / React SPA fallback.
   "assets": {
