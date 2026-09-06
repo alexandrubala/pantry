@@ -39,7 +39,7 @@ export function InventorySheet({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="relative z-10 max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-surface-elevated p-4 shadow-elevated sm:mx-4 sm:rounded-2xl"
+        className="relative z-10 max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-surface-elevated p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] shadow-elevated sm:mx-4 sm:rounded-2xl"
       >
         <div className="flex items-start justify-between gap-3">
           <h2 id={titleId} className="text-lg font-semibold tracking-tight">

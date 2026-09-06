@@ -11,6 +11,10 @@ export function cameraErrorMessage(reason: CameraErrorReason): string {
     return 'Permite accesul la cameră pentru a scana codul.'
   }
 
+  if (reason === 'in-use') {
+    return 'Camera e folosită de altă aplicație. Închide-o și încearcă din nou.'
+  }
+
   return 'Nu putem accesa camera.'
 }
 
@@ -63,4 +67,48 @@ export async function setVideoTrackTorch(track: MediaStreamTrack, on: boolean): 
   await track.applyConstraints({
     advanced: [{ torch: on } as MediaTrackConstraintSet],
   })
+}
+
+export async function applyContinuousFocus(track: MediaStreamTrack): Promise<void> {
+  if (typeof track.getCapabilities !== 'function' || typeof track.applyConstraints !== 'function') {
+    return
+  }
+
+  const capabilities = track.getCapabilities() as MediaTrackCapabilities & { focusMode?: string[] }
+  if (!capabilities.focusMode?.includes('continuous')) {
+    return
+  }
+
+  await track.applyConstraints({
+    advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet],
+  })
+}
+
+export async function openRearCamera(): Promise<MediaStream> {
+  const preferred: MediaStreamConstraints = {
+    audio: false,
+    video: {
+      facingMode: { ideal: 'environment' },
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+    },
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia(preferred)
+    const track = stream.getVideoTracks()[0]
+    if (track) {
+      await applyContinuousFocus(track).catch(() => undefined)
+    }
+    return stream
+  } catch (error) {
+    if (classifyCameraError(error, true) !== 'no-camera') {
+      throw error
+    }
+
+    return navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: 'environment' } },
+    })
+  }
 }

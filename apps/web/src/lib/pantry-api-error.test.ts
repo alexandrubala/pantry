@@ -6,7 +6,9 @@ import {
   LOCATION_NAME_TAKEN_MESSAGE,
   NETWORK_PANTRY_FAILURE_MESSAGE,
   PRODUCT_NAME_INVALID_MESSAGE,
+  PRODUCT_NOT_FOUND_MESSAGE,
   STOCK_CONFLICT_MESSAGE,
+  INVENTORY_CHANGED_MESSAGE,
   SHOPPING_UNIT_CONFLICT_MESSAGE,
   CATALOG_UNAVAILABLE_MESSAGE,
   BARCODE_INVALID_MESSAGE,
@@ -29,6 +31,10 @@ test('maps household, location, and inventory API codes to Romanian copy', () =>
   expect(mapPantryApiError(new PantryApiError(409, 'STOCK_CONFLICT', 'STOCK_CONFLICT'))).toBe(
     STOCK_CONFLICT_MESSAGE,
   )
+  expect(mapPantryApiError(new PantryApiError(409, 'INVENTORY_CHANGED', 'INVENTORY_CHANGED'))).toBe(
+    INVENTORY_CHANGED_MESSAGE,
+  )
+  expect(mapPantryApiError(new PantryApiError(404, 'Not found', 'NOT_FOUND'))).toBe(PRODUCT_NOT_FOUND_MESSAGE)
   expect(mapPantryApiError(new PantryApiError(409, 'SHOPPING_UNIT_CONFLICT', 'SHOPPING_UNIT_CONFLICT'))).toBe(
     SHOPPING_UNIT_CONFLICT_MESSAGE,
   )

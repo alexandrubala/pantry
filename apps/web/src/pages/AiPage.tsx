@@ -395,7 +395,9 @@ export function AiPage() {
         ) : null}
         {loadError ? <p className="mt-2 text-sm text-destructive">{loadError}</p> : null}
         {status === 'ready' && recent.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">Încă nu ai rețete generate în această casă.</p>
+          <p className="mt-2 text-sm text-muted">
+            Încă nu ai rețete generate în această casă. Completează formularul de mai sus și apasă Generează rețetă.
+          </p>
         ) : null}
         <ul className="mt-3 space-y-2">
           {recent.map((entry) => (

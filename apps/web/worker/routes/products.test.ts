@@ -164,3 +164,94 @@ test('POST /api/v1/products can attach a household-private barcode', async () =>
   )
   expect(duplicate.status).toBe(409)
 })
+
+test('PATCH /api/v1/products updates household-private manual name and brand', async () => {
+  const db = openPantryDb()
+  insertUser(db, 'user-1', 'Alex', 'alex@example.invalid')
+  insertProfile(db, 'user-1', 'Alex')
+  await createHousehold(db, 'user-1', 'Casa mea')
+  const created = await app.request(
+    '/api/v1/products',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Lapte', unit: 'ml' }),
+    },
+    envWithDb(db),
+  )
+  const productId = (await created.json()).product.id as string
+
+  const patched = await app.request(
+    `/api/v1/products/${productId}`,
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Lapte de vacă', brand: 'Pilos' }),
+    },
+    envWithDb(db),
+  )
+  expect(patched.status).toBe(200)
+  await expect(patched.json()).resolves.toMatchObject({
+    product: { id: productId, name: 'Lapte de vacă', brand: 'Pilos', unit: 'ml' },
+  })
+
+  const locationId = (
+    (await (await app.request('/api/v1/locations', {}, envWithDb(db))).json()) as {
+      locations: Array<{ id: string; name: string }>
+    }
+  ).locations.find((location) => location.name === 'Frigider')?.id
+  await app.request(
+    '/api/v1/inventory/stock',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ productId, locationId, quantity: 1000 }),
+    },
+    envWithDb(db),
+  )
+  const unitChange = await app.request(
+    `/api/v1/products/${productId}`,
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ unit: 'g' }),
+    },
+    envWithDb(db),
+  )
+  expect(unitChange.status).toBe(409)
+  await expect(unitChange.json()).resolves.toMatchObject({ code: 'UNIT_IMMUTABLE' })
+})
+
+test('PATCH /api/v1/products cannot edit another household or global catalog product', async () => {
+  const db = openPantryDb()
+  insertUser(db, 'user-a', 'A', 'a@example.invalid')
+  insertUser(db, 'user-b', 'B', 'b@example.invalid')
+  insertProfile(db, 'user-a', 'A')
+  insertProfile(db, 'user-b', 'B')
+  await createHousehold(db, 'user-a', 'Casa A')
+  await createHousehold(db, 'user-b', 'Casa B')
+
+  resolveCurrentUserMock.mockResolvedValue({ id: 'user-b', name: 'B' })
+  const created = await app.request(
+    '/api/v1/products',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Secret B', unit: 'g' }),
+    },
+    envWithDb(db),
+  )
+  const productId = (await created.json()).product.id as string
+
+  resolveCurrentUserMock.mockResolvedValue({ id: 'user-a', name: 'A' })
+  const patchB = await app.request(
+    `/api/v1/products/${productId}`,
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Stolen' }),
+    },
+    envWithDb(db),
+  )
+  expect(patchB.status).toBe(404)
+})

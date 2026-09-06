@@ -10,9 +10,12 @@ export const HOUSEHOLD_REQUIRED_MESSAGE = 'Configurează mai întâi casa.'
 export const PRODUCT_NAME_INVALID_MESSAGE = 'Introdu un nume valid pentru produs.'
 export const PRODUCT_BRAND_INVALID_MESSAGE = 'Introdu un brand valid.'
 export const PRODUCT_UNIT_INVALID_MESSAGE = 'Alege o unitate validă.'
-export const QUANTITY_INVALID_MESSAGE = 'Introdu o cantitate mai mare decât 0.'
+export const QUANTITY_INVALID_MESSAGE = 'Introdu o cantitate validă.'
 export const EXPIRY_INVALID_MESSAGE = 'Introdu o dată de expirare validă.'
 export const STOCK_CONFLICT_MESSAGE = 'Stocul s-a schimbat. Încearcă din nou.'
+export const INVENTORY_CHANGED_MESSAGE = 'Stocul s-a schimbat. Reîncarcă și încearcă din nou.'
+export const UNIT_IMMUTABLE_MESSAGE = 'Unitatea produsului nu mai poate fi schimbată.'
+export const PRODUCT_NOT_FOUND_MESSAGE = 'Produsul nu a fost găsit.'
 export const SHOPPING_UNIT_CONFLICT_MESSAGE =
   'Acest produs e deja pe listă cu altă unitate. Editează articolul existent.'
 export const BARCODE_INVALID_MESSAGE = 'Introdu un cod de bare valid.'
@@ -70,6 +73,12 @@ export function mapPantryApiError(error: unknown): string {
         return EXPIRY_INVALID_MESSAGE
       case 'STOCK_CONFLICT':
         return STOCK_CONFLICT_MESSAGE
+      case 'INVENTORY_CHANGED':
+        return INVENTORY_CHANGED_MESSAGE
+      case 'UNIT_IMMUTABLE':
+        return UNIT_IMMUTABLE_MESSAGE
+      case 'NOT_FOUND':
+        return PRODUCT_NOT_FOUND_MESSAGE
       case 'SHOPPING_UNIT_CONFLICT':
         return SHOPPING_UNIT_CONFLICT_MESSAGE
       case 'INVALID_BARCODE':

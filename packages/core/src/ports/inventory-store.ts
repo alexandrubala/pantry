@@ -18,6 +18,8 @@ export type InventoryProduct = {
   unit: Unit
   barcode: string | null
   imageUrl: string | null
+  source: 'manual' | 'open_food_facts'
+  householdOwned: boolean
   externalCatalog: ExternalCatalogId | null
   packageQuantity: number | null
   packageUnit: Unit | null
@@ -29,18 +31,52 @@ export type InventoryItem = {
   totalQuantity: number
   nearestExpiry: string | null
   lots: InventoryLotRecord[]
+  minimumQuantity: number
+  lowStock: boolean
 }
+
+export type InventoryHistoryAction = 'add' | 'consume' | 'adjust' | 'move'
 
 export type InventoryHistoryEntry = {
   id: string
   productId: string
+  productName: string
   locationId: string
+  locationName: string
   userId: string
-  action: 'add' | 'consume' | 'adjust'
+  action: InventoryHistoryAction
   deltaQuantity: number
   unit: Unit
   expiresOn: string | null
   createdAt: string
+}
+
+export type InventorySummary = {
+  products: number
+  lots: number
+  lowStock: number
+  expiringSoon: number
+  expired: number
+}
+
+export type ExpiringLot = {
+  id: string
+  productId: string
+  productName: string
+  brand: string | null
+  locationId: string
+  locationName: string
+  quantity: number
+  unit: Unit
+  expiresOn: string
+  daysRemaining: number
+  status: 'expired' | 'today' | 'tomorrow' | 'soon'
+}
+
+export type InventorySettings = {
+  productId: string
+  minimumQuantity: number
+  unit: Unit
 }
 
 export type InventoryStore = {
@@ -49,6 +85,17 @@ export type InventoryStore = {
     search?: string | null
     locationId?: string | null
   }): Promise<InventoryItem[]>
+  getSummary(input: { householdId: string; today: string }): Promise<InventorySummary>
+  listExpiring(input: {
+    householdId: string
+    today: string
+    days: number
+  }): Promise<ExpiringLot[]>
+  setMinimumQuantity(input: {
+    householdId: string
+    productId: string
+    minimumQuantity: unknown
+  }): Promise<InventorySettings>
   addStock(input: {
     householdId: string
     userId: string
@@ -56,6 +103,19 @@ export type InventoryStore = {
     locationId: string
     quantity: unknown
     expiresOn?: unknown
+  }): Promise<InventoryItem>
+  adjustLot(input: {
+    householdId: string
+    userId: string
+    lotId: string
+    expectedQuantity: unknown
+    quantity: unknown
+  }): Promise<InventoryItem | null>
+  moveLot(input: {
+    householdId: string
+    userId: string
+    lotId: string
+    locationId: string
   }): Promise<InventoryItem>
   readLotsForConsumption(input: {
     householdId: string

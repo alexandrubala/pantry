@@ -64,8 +64,25 @@ export {
   type ConsumptionAllocation,
   type ConsumptionPlanResult,
 } from './inventory/consumption.js'
-export { expiresKey, parseExpiresOn } from './inventory/expiry.js'
-export { validateQuantity } from './inventory/quantity.js'
+export {
+  EXPIRING_SOON_DAYS,
+  addDaysIso,
+  calendarDaysBetween,
+  classifyExpiry,
+  expiresKey,
+  isExpiredLot,
+  isExpiringSoonLot,
+  parseExpiresOn,
+  parseRequiredIsoDate,
+  utcIsoDate,
+  type ExpiryStatus,
+} from './inventory/expiry.js'
+export { isLowStock } from './inventory/low-stock.js'
+export {
+  validateMinimumQuantity,
+  validateNonNegativeQuantity,
+  validateQuantity,
+} from './inventory/quantity.js'
 export {
   MAX_SHOPPING_ITEM_NAME_LENGTH,
   normalizeShoppingItemName,
@@ -92,11 +109,15 @@ export type {
 } from './ports/household-store.js'
 export type { ProductRecord, ProductStore } from './ports/product-store.js'
 export type {
+  ExpiringLot,
+  InventoryHistoryAction,
   InventoryHistoryEntry,
   InventoryItem,
   InventoryLotRecord,
   InventoryProduct,
+  InventorySettings,
   InventoryStore,
+  InventorySummary,
 } from './ports/inventory-store.js'
 export type { ShoppingItem, ShoppingList, ShoppingStore } from './ports/shopping-store.js'
 export type { AiProvider, AiRecipeGenerationInput } from './ports/ai-provider.js'

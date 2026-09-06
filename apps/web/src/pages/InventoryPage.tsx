@@ -1,13 +1,25 @@
-import { DomainError, suggestShoppingQuantity, validateQuantity, validateProductName, type InventoryItem, type Unit } from '@pantry/core'
+import { DomainError, suggestShoppingQuantity, validateQuantity, validateProductName, type InventoryItem, type InventorySummary, type Unit } from '@pantry/core'
 import { LoaderCircle, Plus, Search } from 'lucide-react'
 import { useCallback, useEffect, useId, useState, type FormEvent } from 'react'
+import { Link } from 'react-router'
+import {
+  EditProductSheet,
+  HistorySheet,
+  LotsSheet,
+  MinimumStockSheet,
+} from '../components/inventory/InventoryDailySheets'
 import { InventoryProductCard } from '../components/inventory/InventoryProductCard'
 import { InventorySheet } from '../components/inventory/InventorySheet'
 import { useHousehold } from '../household/HouseholdProvider'
 import { isPantryApiError } from '../lib/api'
 import {
+  attentionCards,
   formatQuantity,
+  itemMatchesStatusFilter,
+  localIsoDate,
+  quickAddLot,
   unitLabel,
+  type InventoryStatusFilter,
 } from '../lib/inventory-format'
 import {
   QUANTITY_INVALID_MESSAGE,
@@ -15,7 +27,7 @@ import {
   insufficientStockMessage,
   mapPantryApiError,
 } from '../lib/pantry-api-error'
-import { addStock, addShoppingProductItem, consumeStock, createProduct, getInventory } from '../lib/pantry-api'
+import { addStock, addShoppingProductItem, consumeStock, createProduct, getInventory, getInventorySummary } from '../lib/pantry-api'
 
 const UNIT_OPTIONS: Array<{ value: Unit; label: string }> = [
   { value: 'g', label: 'g' },
@@ -33,6 +45,10 @@ type SheetState =
   | { type: 'add-stock'; item: InventoryItem }
   | { type: 'consume'; item: InventoryItem }
   | { type: 'shop'; item: InventoryItem }
+  | { type: 'minimum'; item: InventoryItem }
+  | { type: 'edit'; item: InventoryItem }
+  | { type: 'lots'; item: InventoryItem }
+  | { type: 'history'; item?: InventoryItem }
 
 export function InventoryPage() {
   const { household, locations } = useHousehold()
@@ -41,6 +57,10 @@ export function InventoryPage() {
   const [search, setSearch] = useState('')
   const [locationId, setLocationId] = useState<string | null>(null)
   const [items, setItems] = useState<InventoryItem[]>([])
+  const [summary, setSummary] = useState<InventorySummary | null>(null)
+  const [statusFilter, setStatusFilter] = useState<InventoryStatusFilter>('all')
+  const [today] = useState(() => localIsoDate())
+  const [busyProductId, setBusyProductId] = useState<string | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [sheet, setSheet] = useState<SheetState>({ type: 'closed' })
@@ -54,12 +74,16 @@ export function InventoryPage() {
     : null
 
   const reload = useCallback(async () => {
-    const data = await getInventory({
-      search,
-      locationId: activeLocationId ?? undefined,
-    })
+    const [data, nextSummary] = await Promise.all([
+      getInventory({
+        search,
+        locationId: activeLocationId ?? undefined,
+      }),
+      getInventorySummary(today),
+    ])
     setItems(data.items)
-  }, [activeLocationId, search])
+    setSummary(nextSummary)
+  }, [activeLocationId, search, today])
 
   useEffect(() => {
     const handle = window.setTimeout(() => setSearch(searchInput.trim()), 250)
@@ -71,6 +95,8 @@ export function InventoryPage() {
     setSearch('')
     setLocationId(null)
     setItems([])
+    setSummary(null)
+    setStatusFilter('all')
     setSheet({ type: 'closed' })
     setShopNotice(null)
     setShopError(null)
@@ -105,8 +131,13 @@ export function InventoryPage() {
     }
   }, [householdId, reload])
 
-  const empty = status === 'ready' && items.length === 0 && !search && !activeLocationId
-  const noMatches = status === 'ready' && items.length === 0 && (search.length > 0 || activeLocationId !== null)
+  const visibleItems = items.filter((item) => itemMatchesStatusFilter(item, statusFilter, today))
+  const attention = status === 'ready' ? attentionCards(items, today) : []
+  const empty = status === 'ready' && items.length === 0 && !search && !activeLocationId && statusFilter === 'all'
+  const noMatches =
+    status === 'ready' &&
+    visibleItems.length === 0 &&
+    (search.length > 0 || activeLocationId !== null || statusFilter !== 'all')
 
   async function addInventoryProductToShopping(item: InventoryItem, quantity: number, unit: Unit) {
     await addShoppingProductItem({
@@ -141,6 +172,47 @@ export function InventoryPage() {
     }
   }
 
+  async function runProductAction(productId: string, work: () => Promise<void>) {
+    if (busyProductId) {
+      return
+    }
+
+    setBusyProductId(productId)
+    setShopError(null)
+    try {
+      await work()
+      await reload()
+    } catch (cause) {
+      setShopError(mapPantryApiError(cause))
+    } finally {
+      setBusyProductId(null)
+    }
+  }
+
+  function handleQuickAdd(item: InventoryItem) {
+    const locationId = activeLocationId ?? locations[0]?.id ?? item.lots[0]?.locationId ?? ''
+    const lot = locationId ? quickAddLot(item, locationId) : null
+    if (!lot) {
+      setSheet({ type: 'add-stock', item })
+      return
+    }
+
+    void runProductAction(item.product.id, async () => {
+      await addStock({
+        productId: item.product.id,
+        locationId: lot.locationId,
+        quantity: 1,
+        expiresOn: null,
+      })
+    })
+  }
+
+  function handleQuickConsume(item: InventoryItem) {
+    void runProductAction(item.product.id, async () => {
+      await consumeStock({ productId: item.product.id, quantity: 1 })
+    })
+  }
+
   return (
     <section>
       <div className="flex items-start justify-between gap-3">
@@ -157,6 +229,51 @@ export function InventoryPage() {
           Adaugă produs
         </button>
       </div>
+
+      {summary ? (
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <SummaryCard
+            label="Produse"
+            value={summary.products}
+            selected={statusFilter === 'all'}
+            onClick={() => setStatusFilter('all')}
+          />
+          <SummaryCard
+            label="Stoc scăzut"
+            value={summary.lowStock}
+            selected={statusFilter === 'low'}
+            onClick={() => setStatusFilter('low')}
+          />
+          <SummaryCard
+            label="Expiră curând"
+            value={summary.expiringSoon + summary.expired}
+            selected={statusFilter === 'soon'}
+            onClick={() => setStatusFilter('soon')}
+          />
+        </div>
+      ) : null}
+
+      {attention.length > 0 ? (
+        <section className="mt-4">
+          <h2 className="text-sm font-semibold">Necesită atenție</h2>
+          <ul className="mt-2 space-y-2">
+            {attention.map((card) => (
+              <li key={`${card.reason}-${card.productId}`}>
+                <button
+                  type="button"
+                  className="flex w-full min-h-touch flex-col items-start rounded-xl border border-border bg-surface-elevated px-3 py-2 text-left"
+                  onClick={() =>
+                    setStatusFilter(card.reason === 'low' ? 'low' : card.reason === 'expired' ? 'expired' : 'soon')
+                  }
+                >
+                  <span className="font-medium">{card.name}</span>
+                  <span className="text-sm text-muted">{card.detail}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <div className="mt-4">
         <label className="sr-only" htmlFor={searchId}>
@@ -176,7 +293,14 @@ export function InventoryPage() {
       </div>
 
       <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-        <FilterChip label="Toate" selected={activeLocationId === null} onClick={() => setLocationId(null)} />
+        <FilterChip label="Toate" selected={statusFilter === 'all'} onClick={() => setStatusFilter('all')} />
+        <FilterChip label="Stoc scăzut" selected={statusFilter === 'low'} onClick={() => setStatusFilter('low')} />
+        <FilterChip label="Expiră curând" selected={statusFilter === 'soon'} onClick={() => setStatusFilter('soon')} />
+        <FilterChip label="Expirate" selected={statusFilter === 'expired'} onClick={() => setStatusFilter('expired')} />
+      </div>
+
+      <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+        <FilterChip label="Toate locațiile" selected={activeLocationId === null} onClick={() => setLocationId(null)} />
         {locations.map((location) => (
           <FilterChip
             key={location.id}
@@ -205,28 +329,47 @@ export function InventoryPage() {
       {empty ? (
         <div className="mt-10 text-center">
           <p className="text-muted">Inventarul tău este gol.</p>
-          <button
-            type="button"
-            className="mt-4 inline-flex h-touch min-h-touch items-center justify-center rounded-lg bg-accent px-4 text-sm font-medium text-accent-foreground shadow-surface"
-            onClick={() => setSheet({ type: 'add-product' })}
-          >
-            Adaugă primul produs
-          </button>
+          <p className="mt-1 text-sm text-muted">Adaugă un produs sau scanează un cod de bare.</p>
+          <div className="mt-4 flex justify-center gap-2">
+            <button
+              type="button"
+              className="inline-flex h-touch min-h-touch items-center justify-center rounded-lg bg-accent px-4 text-sm font-medium text-accent-foreground shadow-surface"
+              onClick={() => setSheet({ type: 'add-product' })}
+            >
+              Adaugă primul produs
+            </button>
+            <Link
+              to="/scan"
+              className="inline-flex h-touch min-h-touch items-center justify-center rounded-lg border border-border px-4 text-sm font-medium"
+            >
+              Scanează
+            </Link>
+          </div>
         </div>
       ) : null}
 
       {noMatches ? <p className="mt-8 text-muted">Niciun produs găsit.</p> : null}
 
-      {status === 'ready' && items.length > 0 ? (
+      {status === 'ready' && visibleItems.length > 0 ? (
         <ul className="mt-5 space-y-3">
-          {items.map((item) => (
+          {visibleItems.map((item) => (
             <li key={item.product.id}>
               <InventoryProductCard
                 item={item}
+                today={today}
+                busy={busyProductId === item.product.id}
                 shoppingBusy={shoppingProductId === item.product.id}
+                onQuickAdd={() => handleQuickAdd(item)}
                 onAddStock={() => setSheet({ type: 'add-stock', item })}
                 onConsume={() => setSheet({ type: 'consume', item })}
+                onQuickConsume={() => handleQuickConsume(item)}
                 onAddToShopping={() => void handleAddToShopping(item)}
+                onMinimum={() => setSheet({ type: 'minimum', item })}
+                onEdit={
+                  item.product.householdOwned ? () => setSheet({ type: 'edit', item }) : undefined
+                }
+                onLots={() => setSheet({ type: 'lots', item })}
+                onHistory={() => setSheet({ type: 'history', item })}
               />
             </li>
           ))}
@@ -279,7 +422,74 @@ export function InventoryPage() {
           }}
         />
       ) : null}
+
+      {sheet.type === 'minimum' ? (
+        <MinimumStockSheet
+          item={sheet.item}
+          onClose={() => setSheet({ type: 'closed' })}
+          onSaved={async () => {
+            await reload()
+            setSheet({ type: 'closed' })
+          }}
+        />
+      ) : null}
+
+      {sheet.type === 'edit' ? (
+        <EditProductSheet
+          item={sheet.item}
+          onClose={() => setSheet({ type: 'closed' })}
+          onSaved={async () => {
+            await reload()
+            setSheet({ type: 'closed' })
+          }}
+        />
+      ) : null}
+
+      {sheet.type === 'lots' ? (
+        <LotsSheet
+          item={sheet.item}
+          locations={locations}
+          onClose={() => setSheet({ type: 'closed' })}
+          onSaved={async () => {
+            await reload()
+            setSheet({ type: 'closed' })
+          }}
+        />
+      ) : null}
+
+      {sheet.type === 'history' ? (
+        <HistorySheet
+          productId={sheet.item?.product.id}
+          productName={sheet.item?.product.name}
+          onClose={() => setSheet({ type: 'closed' })}
+        />
+      ) : null}
     </section>
+  )
+}
+
+function SummaryCard({
+  label,
+  value,
+  selected,
+  onClick,
+}: {
+  label: string
+  value: number
+  selected: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-xl border px-2 py-2 text-left ${
+        selected ? 'border-accent bg-accent text-accent-foreground' : 'border-border bg-surface-elevated'
+      }`}
+    >
+      <p className="text-lg font-semibold tabular-nums">{value}</p>
+      <p className="text-xs leading-tight">{label}</p>
+    </button>
   )
 }
 

@@ -5,6 +5,9 @@ import {
   planExternalProduct,
   planManualProduct,
   validateBarcode,
+  validateProductBrand,
+  validateProductName,
+  validateProductUnit,
   type ExternalCatalogId,
   type ProductNutrition,
   type ProductRecord,
@@ -15,6 +18,7 @@ import type { D1DatabaseLike } from './d1-like.js'
 
 type ProductRow = {
   id: string
+  household_id: string | null
   name: string
   brand: string | null
   default_unit: Unit
@@ -42,6 +46,7 @@ type ProductRow = {
 
 const PRODUCT_SELECT = `SELECT
   p.id AS id,
+  p.household_id AS household_id,
   p.name AS name,
   p.brand AS brand,
   p.default_unit AS default_unit,
@@ -377,6 +382,82 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
         packageUnit: plan.packageUnit,
         nutrition: input.nutrition && !isEmptyNutrition(input.nutrition) ? input.nutrition : null,
       }
+    },
+
+    async updateManualProduct(input) {
+      const row = await db
+        .prepare(`${PRODUCT_SELECT} WHERE p.id = ?1 AND p.household_id = ?2 AND p.source = 'manual'`)
+        .bind(input.productId, input.householdId)
+        .first<ProductRow>()
+
+      if (!row) {
+        throw new DomainError('NOT_FOUND', 'Not found')
+      }
+
+      const hasName = input.name !== undefined
+      const hasBrand = input.brand !== undefined
+      const hasUnit = input.unit !== undefined
+      if (!hasName && !hasBrand && !hasUnit) {
+        throw new DomainError('INVALID_PRODUCT_NAME', 'Invalid product name')
+      }
+
+      if (hasName && typeof input.name !== 'string') {
+        throw new DomainError('INVALID_PRODUCT_NAME', 'Invalid product name')
+      }
+      const name = hasName ? validateProductName(input.name as string).name : row.name
+      const normalizedName = normalizeProductName(name)
+
+      if (hasBrand && input.brand != null && typeof input.brand !== 'string') {
+        throw new DomainError('INVALID_BRAND', 'Invalid brand')
+      }
+      const brand = hasBrand
+        ? validateProductBrand(typeof input.brand === 'string' ? input.brand : null)
+        : row.brand
+
+      let unit = row.default_unit
+      if (hasUnit) {
+        if (typeof input.unit !== 'string') {
+          throw new DomainError('INVALID_UNIT', 'Invalid unit')
+        }
+        unit = validateProductUnit(input.unit)
+        if (unit !== row.default_unit) {
+          const usage = await db
+            .prepare(
+              `SELECT (
+                 (SELECT COUNT(*) FROM inventory_lots WHERE product_id = ?1)
+                 + (SELECT COUNT(*) FROM inventory_history WHERE product_id = ?1)
+                 + (SELECT COUNT(*) FROM shopping_items WHERE product_id = ?1 AND quantity IS NOT NULL)
+                 + (SELECT COUNT(*) FROM recipe_ingredients WHERE product_id = ?1)
+               ) AS n`,
+            )
+            .bind(row.id)
+            .first<{ n: number }>()
+
+          if ((usage?.n ?? 0) > 0) {
+            throw new DomainError('UNIT_IMMUTABLE', 'Product unit cannot be changed')
+          }
+        }
+      }
+
+      await db
+        .prepare(
+          `UPDATE products
+           SET name = ?1,
+               normalized_name = ?2,
+               brand = ?3,
+               default_unit = ?4,
+               updated_at = ?5
+           WHERE id = ?6 AND household_id = ?7 AND source = 'manual'`,
+        )
+        .bind(name, normalizedName, brand, unit, nowIso(), row.id, input.householdId)
+        .run()
+
+      const updated = await readById(row.id)
+      if (!updated) {
+        throw new DomainError('NOT_FOUND', 'Not found')
+      }
+
+      return updated
     },
   }
 }

@@ -30,6 +30,10 @@ Commands from the repo root. Wrangler config is `apps/web/wrangler.jsonc`.
 
 `0006_open_facts.sql` adds nullable Open Facts metadata on `products` (`image_url`, `external_catalog`, `external_product_type`, `package_quantity`, `package_unit`, `external_fetched_at`) and `product_nutrition` (source per-100g / serving nutrients; missing values stay NULL). Existing inventory rows are not rebuilt. `products.source = 'open_food_facts'` remains the historical Open Facts import path; `external_catalog` distinguishes Open Food Facts from Open Products Facts.
 
+`0008_ai_cook.sql` creates `recipes`, `recipe_ingredients`, `recipe_nutrition`, `recipe_cooks`, and `ai_rate_limits`.
+
+`0009_product_polish.sql` rebuilds `inventory_history` so `action` may be `move`, copies existing rows, and adds `inventory_lots_household_expires_idx`. `inventory_settings.minimum_quantity` is unchanged.
+
 D1 adapters live in `adapters/d1/` and implement `@pantry/core` ports. They must not be imported from `packages/core`.
 
 ## Portability

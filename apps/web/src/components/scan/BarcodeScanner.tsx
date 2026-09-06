@@ -3,6 +3,7 @@ import { validateBarcode } from '@pantry/core'
 import {
   cameraErrorMessage,
   classifyCameraError,
+  openRearCamera,
   setVideoTrackTorch,
   stopMediaStream,
   videoTrackSupportsTorch,
@@ -37,6 +38,7 @@ export function BarcodeScanner({
   const onDetectedRef = useRef(onDetected)
   onDetectedRef.current = onDetected
   const [error, setError] = useState<CameraErrorReason | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
   const [torchOn, setTorchOn] = useState(false)
   const [torchAvailable, setTorchAvailable] = useState(false)
   const torchTrackRef = useRef<MediaStreamTrack | null>(null)
@@ -52,6 +54,7 @@ export function BarcodeScanner({
     let zxingControls: ZXingControls | null = null
     let raf = 0
     let delay = 0
+    detectedRef.current = false
 
     function cleanup() {
       window.cancelAnimationFrame(raf)
@@ -153,10 +156,7 @@ export function BarcodeScanner({
       }
 
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: { facingMode: { ideal: 'environment' } },
-        })
+        stream = await openRearCamera()
       } catch (cause) {
         if (!cancelled) {
           setError(classifyCameraError(cause, window.isSecureContext))
@@ -179,6 +179,8 @@ export function BarcodeScanner({
       video.srcObject = stream
       video.playsInline = true
       video.muted = true
+      video.setAttribute('playsinline', 'true')
+      video.setAttribute('webkit-playsinline', 'true')
       await video.play().catch(() => undefined)
 
       const track = stream.getVideoTracks()[0]
@@ -213,7 +215,7 @@ export function BarcodeScanner({
       cancelled = true
       cleanup()
     }
-  }, [])
+  }, [retryKey])
 
   async function toggleTorch() {
     const track = torchTrackRef.current
@@ -232,7 +234,13 @@ export function BarcodeScanner({
 
   return (
     <div className="fixed inset-0 z-20 bg-black text-white">
-      <video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
+      <video
+        ref={videoRef}
+        className="h-full w-full object-cover"
+        autoPlay
+        muted
+        playsInline
+      />
       <div className="pointer-events-none absolute inset-0 bg-black/25" />
 
       <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 px-4 pt-[max(1rem,env(safe-area-inset-top,0px))]">
@@ -258,9 +266,22 @@ export function BarcodeScanner({
       </div>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center px-8">
-        <div className="h-36 w-full max-w-xs rounded-2xl border-2 border-white/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
+        <div className="h-24 w-full max-w-sm rounded-2xl border-2 border-white/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
         <p className="mt-4 text-center text-sm font-medium">Centrează codul de bare în chenar</p>
+        <p className="mt-1 text-center text-sm text-white/80">Ține telefonul la 10–20 cm de cod.</p>
         {error ? <p className="mt-3 text-center text-sm text-white/90">{cameraErrorMessage(error)}</p> : null}
+        {error === 'permission' || error === 'in-use' || error === 'failed' ? (
+          <button
+            type="button"
+            className="pointer-events-auto mt-3 rounded-lg bg-white/90 px-3 py-2 text-sm font-medium text-black"
+            onClick={() => {
+              setError(null)
+              setRetryKey((value) => value + 1)
+            }}
+          >
+            Încearcă din nou
+          </button>
+        ) : null}
       </div>
 
       <div className="absolute inset-x-0 bottom-0 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))]">

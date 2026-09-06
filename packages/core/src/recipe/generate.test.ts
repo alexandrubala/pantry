@@ -23,6 +23,8 @@ function item(partial: {
       unit: partial.unit,
       barcode: null,
       imageUrl: null,
+      source: 'manual',
+      householdOwned: true,
       externalCatalog: null,
       packageQuantity: partial.packageQuantity ?? null,
       packageUnit: partial.packageUnit ?? null,
@@ -31,6 +33,8 @@ function item(partial: {
     totalQuantity: partial.quantity,
     nearestExpiry: null,
     lots: [],
+    minimumQuantity: 0,
+    lowStock: false,
   }
 }
 

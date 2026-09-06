@@ -9,6 +9,55 @@ export function isConflictGuardError(error: unknown): boolean {
   return /inventory_conflict_abort|CHECK constraint failed/i.test(error.message)
 }
 
+export function isUniqueConstraintError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false
+  }
+
+  return /UNIQUE constraint failed/i.test(error.message)
+}
+
+export function staleLotAbortStatement(
+  db: D1DatabaseLike,
+  input: {
+    lotId: string
+    householdId: string
+    expectedQuantity: number
+    locationId?: string
+  },
+): D1PreparedStatementLike {
+  if (input.locationId) {
+    return db
+      .prepare(
+        `INSERT INTO inventory_conflict_abort (reason)
+         SELECT 'STALE_LOT'
+         WHERE NOT EXISTS (
+           SELECT 1
+           FROM inventory_lots
+           WHERE id = ?1
+             AND household_id = ?2
+             AND quantity = ?3
+             AND location_id = ?4
+         )`,
+      )
+      .bind(input.lotId, input.householdId, input.expectedQuantity, input.locationId)
+  }
+
+  return db
+    .prepare(
+      `INSERT INTO inventory_conflict_abort (reason)
+       SELECT 'STALE_LOT'
+       WHERE NOT EXISTS (
+         SELECT 1
+         FROM inventory_lots
+         WHERE id = ?1
+           AND household_id = ?2
+           AND quantity = ?3
+       )`,
+    )
+    .bind(input.lotId, input.householdId, input.expectedQuantity)
+}
+
 export function lotConsumptionStatements(
   db: D1DatabaseLike,
   input: {

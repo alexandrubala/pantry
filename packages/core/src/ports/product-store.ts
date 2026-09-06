@@ -46,4 +46,11 @@ export type ProductStore = {
     packageUnit: Unit | null
     nutrition: ProductNutrition | null
   }): Promise<ProductRecord>
+  updateManualProduct(input: {
+    householdId: string
+    productId: string
+    name?: unknown
+    brand?: unknown
+    unit?: unknown
+  }): Promise<ProductRecord>
 }

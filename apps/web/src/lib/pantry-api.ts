@@ -56,6 +56,38 @@ export type InventoryHistoryResponse = {
   history: InventoryHistoryEntry[]
 }
 
+export type InventorySummaryResponse = {
+  products: number
+  lots: number
+  lowStock: number
+  expiringSoon: number
+  expired: number
+}
+
+export type InventorySettingsResponse = {
+  settings: {
+    productId: string
+    minimumQuantity: number
+    unit: Unit
+  }
+}
+
+export type ExpiringLotsResponse = {
+  lots: Array<{
+    id: string
+    productId: string
+    productName: string
+    brand: string | null
+    locationId: string
+    locationName: string
+    quantity: number
+    unit: Unit
+    expiresOn: string
+    daysRemaining: number
+    status: 'expired' | 'today' | 'tomorrow' | 'soon'
+  }>
+}
+
 export type ShoppingListResponse = {
   list: ShoppingList
 }
@@ -95,6 +127,13 @@ export function getProducts(search?: string) {
 
 export function createProduct(input: { name: string; brand?: string; unit: string; barcode?: string }) {
   return apiSend<CreateProductResponse>('/api/v1/products', 'POST', input)
+}
+
+export function updateProduct(
+  productId: string,
+  input: { name?: string; brand?: string | null; unit?: string },
+) {
+  return apiSend<CreateProductResponse>(`/api/v1/products/${encodeURIComponent(productId)}`, 'PATCH', input)
 }
 
 export type BarcodeLookupExisting = {
@@ -153,6 +192,30 @@ export function getInventory(input?: { search?: string; locationId?: string }) {
   return apiGet<InventoryResponse>(`/api/v1/inventory${query ? `?${query}` : ''}`)
 }
 
+export function getInventorySummary(today: string) {
+  return apiGet<InventorySummaryResponse>(`/api/v1/inventory/summary?today=${encodeURIComponent(today)}`)
+}
+
+export function getExpiringLots(input?: { today?: string; days?: number }) {
+  const params = new URLSearchParams()
+  if (input?.today) {
+    params.set('today', input.today)
+  }
+  if (input?.days != null) {
+    params.set('days', String(input.days))
+  }
+  const query = params.toString()
+  return apiGet<ExpiringLotsResponse>(`/api/v1/inventory/expiring${query ? `?${query}` : ''}`)
+}
+
+export function setMinimumQuantity(productId: string, minimumQuantity: number) {
+  return apiSend<InventorySettingsResponse>(
+    `/api/v1/inventory/settings/${encodeURIComponent(productId)}`,
+    'PUT',
+    { minimumQuantity },
+  )
+}
+
 export function addStock(input: {
   productId: string
   locationId: string
@@ -164,6 +227,14 @@ export function addStock(input: {
 
 export function consumeStock(input: { productId: string; quantity: number }) {
   return apiSend<InventoryMutationResponse>('/api/v1/inventory/consume', 'POST', input)
+}
+
+export function adjustLot(input: { lotId: string; expectedQuantity: number; quantity: number }) {
+  return apiSend<InventoryMutationResponse>('/api/v1/inventory/adjust', 'POST', input)
+}
+
+export function moveLot(input: { lotId: string; locationId: string }) {
+  return apiSend<InventoryMutationResponse>('/api/v1/inventory/move', 'POST', input)
 }
 
 export function getInventoryHistory(productId?: string) {

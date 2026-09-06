@@ -12,5 +12,5 @@ export const navItems: NavItem[] = [
   { to: '/inventory', label: 'Inventar', icon: Package },
   { to: '/scan', label: 'Scan', icon: ScanBarcode, prominent: true },
   { to: '/shopping', label: 'Cumpărături', icon: ShoppingCart },
-  { to: '/ai', label: 'AI', icon: ChefHat },
+  { to: '/ai', label: 'Gătește', icon: ChefHat },
 ]
