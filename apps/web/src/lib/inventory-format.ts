@@ -1,5 +1,6 @@
 import {
   classifyExpiry,
+  lotQuickAddStep,
   type ExpiryStatus,
   type InventoryHistoryEntry,
   type InventoryItem,
@@ -53,6 +54,20 @@ export function formatDayMonthRo(isoDate: string): string {
   }).format(new Date(Date.UTC(year, month - 1, day)))
 }
 
+export function formatDayMonthYearRo(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  if (!year || !month || !day) {
+    return isoDate
+  }
+
+  return new Intl.DateTimeFormat('ro-RO', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(year, month - 1, day)))
+}
+
 export function localIsoDate(date = new Date()): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -66,6 +81,37 @@ export function formatExpiryHeadline(isoDate: string, today = localIsoDate()): s
 
 export function formatLotExpiry(isoDate: string | null): string {
   return isoDate ? formatDayMonthRo(isoDate) : 'fără expirare'
+}
+
+export function formatLotExpiryLine(isoDate: string | null, today = localIsoDate()): string {
+  if (!isoDate) {
+    return 'Fără expirare'
+  }
+
+  const badge = formatExpiryBadge(isoDate, today)
+  if (badge?.status === 'expired') {
+    return 'Expirat'
+  }
+  if (badge?.status === 'today') {
+    return 'Expiră azi'
+  }
+  if (badge?.status === 'tomorrow') {
+    return 'Expiră mâine'
+  }
+
+  return `Expiră: ${formatDayMonthYearRo(isoDate)}`
+}
+
+export function catalogStockSuggestionHint(quantity: number, unit: Unit): string {
+  return `Sugestie catalog: ${formatQuantity(quantity, unit)}. Verifică cantitatea înainte de a salva.`
+}
+
+export function lotPlusButtonLabel(item: InventoryItem): string {
+  const step = lotQuickAddStep(item.product)
+  if (step?.asPackage) {
+    return `+ 1 pachet (${formatQuantity(step.quantity, item.product.unit)})`
+  }
+  return 'Adaugă în acest lot'
 }
 
 export type ExpiryBadge = {
@@ -164,6 +210,12 @@ export function formatHistoryHeadline(entry: InventoryHistoryEntry): string {
   }
   if (entry.action === 'move') {
     return `Mutat · ${qty} ${entry.productName}`
+  }
+  if (entry.action === 'edit') {
+    if (entry.deltaQuantity === 0) {
+      return `Editat · ${entry.productName}`
+    }
+    return `Editat · ${qty} ${entry.productName}`
   }
   return `${qty} ${entry.productName}`
 }

@@ -459,5 +459,112 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
 
       return updated
     },
+
+    async createHouseholdOverrideProduct(input) {
+      const source = await db
+        .prepare(`${PRODUCT_SELECT} WHERE p.id = ?1 AND (p.household_id = ?2 OR p.household_id IS NULL)`)
+        .bind(input.sourceProductId, input.householdId)
+        .first<ProductRow>()
+
+      if (!source) {
+        throw new DomainError('NOT_FOUND', 'Not found')
+      }
+
+      if (source.household_id === input.householdId) {
+        throw new DomainError('UNIT_IMMUTABLE', 'Product unit cannot be changed')
+      }
+
+      if (!source.barcode) {
+        throw new DomainError('INVALID_BARCODE', 'Invalid barcode')
+      }
+
+      const unit = validateProductUnit(input.unit)
+      const existing = await db
+        .prepare(`${PRODUCT_SELECT} WHERE p.barcode = ?1 AND p.household_id = ?2`)
+        .bind(source.barcode, input.householdId)
+        .first<ProductRow>()
+
+      if (existing) {
+        if (existing.default_unit === unit) {
+          return toProduct(existing)
+        }
+
+        const usage = await db
+          .prepare(
+            `SELECT (
+               (SELECT COUNT(*) FROM inventory_lots WHERE product_id = ?1 AND household_id = ?2)
+               + (SELECT COUNT(*) FROM inventory_history WHERE product_id = ?1 AND household_id = ?2)
+               + (SELECT COUNT(*) FROM shopping_items WHERE product_id = ?1 AND household_id = ?2 AND quantity IS NOT NULL)
+             ) AS n`,
+          )
+          .bind(existing.id, input.householdId)
+          .first<{ n: number }>()
+
+        if ((usage?.n ?? 0) > 0) {
+          throw new DomainError('UNIT_IMMUTABLE', 'Product unit cannot be changed')
+        }
+
+        await db
+          .prepare(
+            `UPDATE products
+             SET default_unit = ?1, updated_at = ?2
+             WHERE id = ?3 AND household_id = ?4`,
+          )
+          .bind(unit, nowIso(), existing.id, input.householdId)
+          .run()
+
+        const updated = await readById(existing.id)
+        if (!updated) {
+          throw new DomainError('NOT_FOUND', 'Not found')
+        }
+        return updated
+      }
+
+      const now = nowIso()
+      const id = newId()
+      const name = validateProductName(source.name)
+      try {
+        await db
+          .prepare(
+            `INSERT INTO products (
+               id, household_id, barcode, name, normalized_name, brand, default_unit, source,
+               image_url, package_quantity, package_unit, created_at, updated_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'manual', ?8, ?9, ?10, ?11, ?11)`,
+          )
+          .bind(
+            id,
+            input.householdId,
+            source.barcode,
+            name.name,
+            name.normalizedName,
+            source.brand,
+            unit,
+            source.image_url,
+            source.package_quantity,
+            source.package_unit,
+            now,
+          )
+          .run()
+      } catch (error) {
+        if (!isUniqueConstraintError(error)) {
+          throw error
+        }
+
+        const raced = await db
+          .prepare(`${PRODUCT_SELECT} WHERE p.barcode = ?1 AND p.household_id = ?2`)
+          .bind(source.barcode, input.householdId)
+          .first<ProductRow>()
+        if (!raced) {
+          throw error
+        }
+        return toProduct(raced)
+      }
+
+      const created = await readById(id)
+      if (!created) {
+        throw new DomainError('NOT_FOUND', 'Not found')
+      }
+      return created
+    },
   }
 }

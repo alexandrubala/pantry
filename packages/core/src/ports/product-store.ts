@@ -53,4 +53,9 @@ export type ProductStore = {
     brand?: unknown
     unit?: unknown
   }): Promise<ProductRecord>
+  createHouseholdOverrideProduct(input: {
+    householdId: string
+    sourceProductId: string
+    unit: string
+  }): Promise<ProductRecord>
 }

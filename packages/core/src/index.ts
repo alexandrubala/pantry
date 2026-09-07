@@ -106,6 +106,7 @@ export {
   validateNonNegativeQuantity,
   validateQuantity,
 } from './inventory/quantity.js'
+export { lotQuickAddStep, type LotQuickAddStep } from './inventory/lot-quick-add.js'
 export {
   MAX_SHOPPING_ITEM_NAME_LENGTH,
   normalizeShoppingItemName,
@@ -141,6 +142,7 @@ export type { ProductRecord, ProductStore } from './ports/product-store.js'
 export type {
   ExpiringLot,
   InventoryHistoryAction,
+  InventoryHistoryEditMetadata,
   InventoryHistoryEntry,
   InventoryItem,
   InventoryLotRecord,

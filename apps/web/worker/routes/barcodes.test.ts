@@ -362,3 +362,42 @@ test('imported barcode can be stocked and a second lookup stays on the same glob
   expect(db.prepare('SELECT COUNT(*) AS n FROM inventory_lots').get()).toEqual({ n: 1 })
   expect(db.prepare('SELECT COUNT(*) AS n FROM inventory_history').get()).toEqual({ n: 2 })
 })
+
+test('external 3 g catalog suggestion is returned without writing inventory', async () => {
+  const db = openPantryDb()
+  insertUser(db, 'user-1', 'Alex', 'alex@example.invalid')
+  insertProfile(db, 'user-1', 'Alex')
+  await createHousehold(db, 'user-1', 'Casa mea')
+
+  lookupMock.mockResolvedValue({
+    status: 'found',
+    product: {
+      barcode: '8076809513388',
+      catalog: 'open_food_facts',
+      productType: 'food',
+      name: 'Noodles',
+      brand: 'Barilla',
+      imageUrl: null,
+      quantityText: '3 g',
+      packageQuantity: 3,
+      packageUnit: 'g',
+      packageQuantityConfident: true,
+      unit: 'g',
+      nutrition: null,
+    },
+  })
+
+  const lookup = await app.request('/api/v1/barcodes/8076809513388', {}, envWithDb(db))
+  expect(lookup.status).toBe(200)
+  const body = await lookup.json()
+  expect(body.status).toBe('external')
+  expect(body.product).toMatchObject({
+    packageQuantity: 3,
+    packageUnit: 'g',
+    packageQuantityConfident: true,
+    unit: 'g',
+    quantityText: '3 g',
+  })
+  expect(db.prepare('SELECT COUNT(*) AS n FROM products').get()).toEqual({ n: 0 })
+  expect(db.prepare('SELECT COUNT(*) AS n FROM inventory_lots').get()).toEqual({ n: 0 })
+})

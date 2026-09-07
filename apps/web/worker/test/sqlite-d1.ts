@@ -78,6 +78,7 @@ export function openPantryDb() {
   db.exec(readFileSync(join(migrationsDir(), '0009_product_polish.sql'), 'utf8'))
   db.exec(readFileSync(join(migrationsDir(), '0010_household_sharing.sql'), 'utf8'))
   db.exec(readFileSync(join(migrationsDir(), '0011_settings_receipts.sql'), 'utf8'))
+  db.exec(readFileSync(join(migrationsDir(), '0012_inventory_lot_edit.sql'), 'utf8'))
   return db
 }
 

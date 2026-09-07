@@ -4,9 +4,10 @@ import {
   httpStatusForDomainError,
   isDomainError,
   type HouseholdStore,
+  type InventoryStore,
   type ProductStore,
 } from '@pantry/core'
-import { createD1HouseholdStore, createD1ProductStore } from '@pantry/database/d1'
+import { createD1HouseholdStore, createD1InventoryStore, createD1ProductStore } from '@pantry/database/d1'
 import { requireAuth } from '../auth/authorize.js'
 import { ensureProfile } from '../profiles/profile.js'
 
@@ -18,6 +19,10 @@ function householdStore(db: D1Database): HouseholdStore {
 
 function productStore(db: D1Database): ProductStore {
   return createD1ProductStore(db)
+}
+
+function inventoryStore(db: D1Database): InventoryStore {
+  return createD1InventoryStore(db)
 }
 
 function readJsonObject(value: unknown): Record<string, unknown> | null {
@@ -168,6 +173,50 @@ products.patch('/products/:id', async (c) => {
       unit: body.unit,
     })
     return c.json({ product })
+  } catch (error) {
+    if (isDomainError(error)) {
+      const mapped = domainResponse(error)
+      return c.json(mapped.body, mapped.status)
+    }
+    throw error
+  }
+})
+
+products.post('/products/:id/local-override', async (c) => {
+  const user = await requireAuth(c.env, c.req.raw)
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
+  await ensureProfile(c.env.DB, user)
+
+  const productId = c.req.param('id').trim()
+  if (!productId) {
+    return c.json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  let payload: unknown
+  try {
+    payload = await c.req.json()
+  } catch {
+    return c.json({ error: 'Invalid unit', code: 'INVALID_UNIT' }, 400)
+  }
+
+  const body = readJsonObject(payload)
+  if (!body || typeof body.unit !== 'string') {
+    return c.json({ error: 'Invalid unit', code: 'INVALID_UNIT' }, 400)
+  }
+
+  try {
+    const { household } = await requireActiveHousehold(c.env, user.id)
+    const item = await inventoryStore(c.env.DB).overrideHouseholdUnit({
+      householdId: household.id,
+      userId: user.id,
+      productId,
+      unit: body.unit,
+      lots: body.lots ?? [],
+    })
+    return c.json({ item, product: item?.product ?? null })
   } catch (error) {
     if (isDomainError(error)) {
       const mapped = domainResponse(error)

@@ -35,7 +35,14 @@ export type InventoryItem = {
   lowStock: boolean
 }
 
-export type InventoryHistoryAction = 'add' | 'consume' | 'adjust' | 'move'
+export type InventoryHistoryAction = 'add' | 'consume' | 'adjust' | 'move' | 'edit'
+
+export type InventoryHistoryEditMetadata = {
+  oldLocationId: string
+  newLocationId: string
+  oldExpiresOn: string | null
+  newExpiresOn: string | null
+}
 
 export type InventoryHistoryEntry = {
   id: string
@@ -48,6 +55,7 @@ export type InventoryHistoryEntry = {
   deltaQuantity: number
   unit: Unit
   expiresOn: string | null
+  metadata: InventoryHistoryEditMetadata | null
   createdAt: string
 }
 
@@ -110,6 +118,26 @@ export type InventoryStore = {
     lotId: string
     expectedQuantity: unknown
     quantity: unknown
+  }): Promise<InventoryItem | null>
+  updateLot(input: {
+    householdId: string
+    userId: string
+    lotId: string
+    expected: {
+      quantity: unknown
+      locationId: unknown
+      expiresOn: unknown
+    }
+    quantity: unknown
+    locationId: unknown
+    expiresOn: unknown
+  }): Promise<InventoryItem | null>
+  overrideHouseholdUnit(input: {
+    householdId: string
+    userId: string
+    productId: string
+    unit: unknown
+    lots: unknown
   }): Promise<InventoryItem | null>
   moveLot(input: {
     householdId: string

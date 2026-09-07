@@ -11,10 +11,12 @@ import {
   parseRequiredIsoDate,
   validateMinimumQuantity,
   validateNonNegativeQuantity,
+  validateProductUnit,
   validateQuantity,
   type ConsumableLot,
   type ExpiringLot,
   type ExternalCatalogId,
+  type InventoryHistoryEditMetadata,
   type InventoryHistoryEntry,
   type InventoryItem,
   type InventoryStore,
@@ -84,6 +86,7 @@ type HistoryRow = {
   delta_quantity: number
   unit: Unit
   expires_on: string | null
+  metadata: string | null
   created_at: string
 }
 
@@ -123,6 +126,72 @@ function newId(): string {
 
 function nowIso(): string {
   return new Date().toISOString()
+}
+
+function requireLocationId(value: unknown): string {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new DomainError('NOT_FOUND', 'Not found')
+  }
+
+  return value.trim()
+}
+
+function parseEditMetadata(value: string | null): InventoryHistoryEditMetadata | null {
+  if (!value) {
+    return null
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(value)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null
+    }
+
+    const record = parsed as Record<string, unknown>
+    if (typeof record.oldLocationId !== 'string' || typeof record.newLocationId !== 'string') {
+      return null
+    }
+
+    const oldExpiresOn = record.oldExpiresOn == null ? null : record.oldExpiresOn
+    const newExpiresOn = record.newExpiresOn == null ? null : record.newExpiresOn
+    if (oldExpiresOn != null && typeof oldExpiresOn !== 'string') {
+      return null
+    }
+    if (newExpiresOn != null && typeof newExpiresOn !== 'string') {
+      return null
+    }
+
+    return {
+      oldLocationId: record.oldLocationId,
+      newLocationId: record.newLocationId,
+      oldExpiresOn: oldExpiresOn as string | null,
+      newExpiresOn: newExpiresOn as string | null,
+    }
+  } catch {
+    return null
+  }
+}
+
+function parseLotOverrideQuantities(value: unknown): Array<{ lotId: string; quantity: number }> {
+  if (!Array.isArray(value)) {
+    throw new DomainError('INVALID_QUANTITY', 'Invalid quantity')
+  }
+
+  return value.map((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new DomainError('INVALID_QUANTITY', 'Invalid quantity')
+    }
+
+    const record = entry as Record<string, unknown>
+    if (typeof record.lotId !== 'string' || record.lotId.trim() === '') {
+      throw new DomainError('NOT_FOUND', 'Not found')
+    }
+
+    return {
+      lotId: record.lotId.trim(),
+      quantity: validateNonNegativeQuantity(record.quantity),
+    }
+  })
 }
 
 function toInventoryNutrition(row: LotJoinRow): ProductNutrition | null {
@@ -632,6 +701,335 @@ export function createD1InventoryStore(db: D1DatabaseLike): InventoryStore {
       return readInventoryItem(input.householdId, product.id)
     },
 
+    async updateLot(input) {
+      const expectedQuantity = validateQuantity(input.expected.quantity)
+      const expectedLocationId = requireLocationId(input.expected.locationId)
+      const expectedExpiresOn = parseExpiresOn(input.expected.expiresOn)
+      const quantity = validateNonNegativeQuantity(input.quantity)
+      const locationId = requireLocationId(input.locationId)
+      const expiresOn = parseExpiresOn(input.expiresOn)
+      const lot = await requireHouseholdLot(input.householdId, input.lotId)
+      const destination = await requireHouseholdLocation(input.householdId, locationId)
+      const product = await requireReadableProduct(input.householdId, lot.product_id)
+
+      if (
+        lot.quantity !== expectedQuantity ||
+        lot.location_id !== expectedLocationId ||
+        expiresKey(lot.expires_on) !== expiresKey(expectedExpiresOn)
+      ) {
+        throw new DomainError('INVENTORY_CHANGED', 'INVENTORY_CHANGED')
+      }
+
+      const locationChanged = lot.location_id !== destination.id
+      const expiryChanged = expiresKey(lot.expires_on) !== expiresKey(expiresOn)
+      const quantityChanged = lot.quantity !== quantity
+
+      if (!locationChanged && !expiryChanged && !quantityChanged) {
+        return readInventoryItem(input.householdId, product.id)
+      }
+
+      const now = nowIso()
+      const staleSource = staleLotAbortStatement(db, {
+        lotId: lot.id,
+        householdId: input.householdId,
+        expectedQuantity,
+        locationId: lot.location_id,
+        expiresKey: lot.expires_key,
+      })
+
+      if (quantity === 0) {
+        const statements = [
+          staleSource,
+          db
+            .prepare(
+              `DELETE FROM inventory_lots
+               WHERE id = ?1 AND household_id = ?2`,
+            )
+            .bind(lot.id, input.householdId),
+          db
+            .prepare(
+              `INSERT INTO inventory_history (
+                 id, household_id, product_id, location_id, user_id, action, delta_quantity, unit, expires_on, created_at
+               ) VALUES (?1, ?2, ?3, ?4, ?5, 'adjust', ?6, ?7, ?8, ?9)`,
+            )
+            .bind(
+              newId(),
+              input.householdId,
+              product.id,
+              lot.location_id,
+              input.userId,
+              -expectedQuantity,
+              product.unit,
+              lot.expires_on,
+              now,
+            ),
+        ]
+
+        try {
+          await db.batch(statements)
+        } catch (error) {
+          if (isConflictGuardError(error)) {
+            throw new DomainError('INVENTORY_CHANGED', 'INVENTORY_CHANGED')
+          }
+
+          throw error
+        }
+
+        return readInventoryItem(input.householdId, product.id)
+      }
+
+      if (!locationChanged && !expiryChanged) {
+        return this.adjustLot({
+          householdId: input.householdId,
+          userId: input.userId,
+          lotId: lot.id,
+          expectedQuantity,
+          quantity,
+        })
+      }
+
+      const matching = await db
+        .prepare(
+          `SELECT id, product_id, location_id, quantity, expires_on, expires_key
+           FROM inventory_lots
+           WHERE household_id = ?1
+             AND product_id = ?2
+             AND location_id = ?3
+             AND expires_key = ?4
+             AND id != ?5`,
+        )
+        .bind(input.householdId, lot.product_id, destination.id, expiresKey(expiresOn), lot.id)
+        .first<LotRow>()
+
+      const metadata: InventoryHistoryEditMetadata = {
+        oldLocationId: lot.location_id,
+        newLocationId: destination.id,
+        oldExpiresOn: lot.expires_on,
+        newExpiresOn: expiresOn,
+      }
+      const statements = [staleSource]
+
+      if (matching) {
+        statements.push(
+          staleLotAbortStatement(db, {
+            lotId: matching.id,
+            householdId: input.householdId,
+            expectedQuantity: matching.quantity,
+            locationId: matching.location_id,
+            expiresKey: matching.expires_key,
+          }),
+          db
+            .prepare(
+              `UPDATE inventory_lots
+               SET quantity = quantity + ?1, updated_at = ?2
+               WHERE id = ?3 AND household_id = ?4`,
+            )
+            .bind(quantity, now, matching.id, input.householdId),
+          db.prepare(`DELETE FROM inventory_lots WHERE id = ?1 AND household_id = ?2`).bind(lot.id, input.householdId),
+        )
+      } else {
+        statements.push(
+          db
+            .prepare(
+              `UPDATE inventory_lots
+               SET location_id = ?1,
+                   expires_on = ?2,
+                   expires_key = ?3,
+                   quantity = ?4,
+                   updated_at = ?5
+               WHERE id = ?6
+                 AND household_id = ?7
+                 AND location_id = ?8
+                 AND expires_key = ?9
+                 AND quantity = ?10`,
+            )
+            .bind(
+              destination.id,
+              expiresOn,
+              expiresKey(expiresOn),
+              quantity,
+              now,
+              lot.id,
+              input.householdId,
+              lot.location_id,
+              lot.expires_key,
+              lot.quantity,
+            ),
+        )
+      }
+
+      statements.push(
+        db
+          .prepare(
+            `INSERT INTO inventory_history (
+               id, household_id, product_id, location_id, user_id, action, delta_quantity, unit, expires_on, metadata, created_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, 'edit', ?6, ?7, ?8, ?9, ?10)`,
+          )
+          .bind(
+            newId(),
+            input.householdId,
+            product.id,
+            destination.id,
+            input.userId,
+            quantity - expectedQuantity,
+            product.unit,
+            expiresOn,
+            JSON.stringify(metadata),
+            now,
+          ),
+      )
+
+      try {
+        await db.batch(statements)
+      } catch (error) {
+        if (isConflictGuardError(error) || isUniqueConstraintError(error)) {
+          throw new DomainError('INVENTORY_CHANGED', 'INVENTORY_CHANGED')
+        }
+
+        throw error
+      }
+
+      return readInventoryItem(input.householdId, product.id)
+    },
+
+    async overrideHouseholdUnit(input) {
+      const unit = validateProductUnit(typeof input.unit === 'string' ? input.unit : '')
+      const lotQuantities = parseLotOverrideQuantities(input.lots)
+      const source = await requireReadableProduct(input.householdId, input.productId)
+      if (source.unit === unit) {
+        throw new DomainError('INVALID_UNIT', 'Invalid unit')
+      }
+
+      const currentLots = await db
+        .prepare(
+          `SELECT id, product_id, location_id, quantity, expires_on, expires_key
+           FROM inventory_lots
+           WHERE household_id = ?1 AND product_id = ?2
+           ORDER BY id ASC`,
+        )
+        .bind(input.householdId, source.id)
+        .all<LotRow>()
+
+      const currentIds = new Set(currentLots.results.map((lot) => lot.id))
+      const mappedIds = new Set(lotQuantities.map((lot) => lot.lotId))
+      if (currentIds.size !== mappedIds.size || [...currentIds].some((id) => !mappedIds.has(id))) {
+        throw new DomainError('INVENTORY_CHANGED', 'INVENTORY_CHANGED')
+      }
+
+      const override = await products.createHouseholdOverrideProduct({
+        householdId: input.householdId,
+        sourceProductId: source.id,
+        unit,
+      })
+
+      const quantityByLotId = new Map(lotQuantities.map((lot) => [lot.lotId, lot.quantity]))
+      const now = nowIso()
+      const statements = currentLots.results.flatMap((lot) => {
+        const nextQuantity = quantityByLotId.get(lot.id) ?? 0
+        const stale = staleLotAbortStatement(db, {
+          lotId: lot.id,
+          householdId: input.householdId,
+          expectedQuantity: lot.quantity,
+          locationId: lot.location_id,
+          expiresKey: lot.expires_key,
+        })
+        const remove = [
+          stale,
+          db.prepare(`DELETE FROM inventory_lots WHERE id = ?1 AND household_id = ?2`).bind(lot.id, input.householdId),
+          db
+            .prepare(
+              `INSERT INTO inventory_history (
+                 id, household_id, product_id, location_id, user_id, action, delta_quantity, unit, expires_on, created_at
+               ) VALUES (?1, ?2, ?3, ?4, ?5, 'adjust', ?6, ?7, ?8, ?9)`,
+            )
+            .bind(
+              newId(),
+              input.householdId,
+              source.id,
+              lot.location_id,
+              input.userId,
+              -lot.quantity,
+              source.unit,
+              lot.expires_on,
+              now,
+            ),
+        ]
+
+        if (nextQuantity <= 0) {
+          return remove
+        }
+
+        return [
+          ...remove,
+          db
+            .prepare(
+              `INSERT INTO inventory_lots (
+                 id, household_id, product_id, location_id, quantity, expires_on, expires_key, created_at, updated_at
+               ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)
+               ON CONFLICT (household_id, product_id, location_id, expires_key) DO UPDATE SET
+                 quantity = inventory_lots.quantity + excluded.quantity,
+                 updated_at = excluded.updated_at`,
+            )
+            .bind(
+              newId(),
+              input.householdId,
+              override.id,
+              lot.location_id,
+              nextQuantity,
+              lot.expires_on,
+              lot.expires_key,
+              now,
+            ),
+          db
+            .prepare(
+              `INSERT INTO inventory_history (
+                 id, household_id, product_id, location_id, user_id, action, delta_quantity, unit, expires_on, created_at
+               ) VALUES (?1, ?2, ?3, ?4, ?5, 'add', ?6, ?7, ?8, ?9)`,
+            )
+            .bind(
+              newId(),
+              input.householdId,
+              override.id,
+              lot.location_id,
+              input.userId,
+              nextQuantity,
+              override.unit,
+              lot.expires_on,
+              now,
+            ),
+        ]
+      })
+
+      statements.push(
+        db
+          .prepare(
+            `INSERT INTO inventory_settings (household_id, product_id, minimum_quantity, updated_at)
+             SELECT household_id, ?1, minimum_quantity, ?2
+             FROM inventory_settings
+             WHERE household_id = ?3 AND product_id = ?4
+             ON CONFLICT (household_id, product_id) DO UPDATE SET
+               minimum_quantity = excluded.minimum_quantity,
+               updated_at = excluded.updated_at`,
+          )
+          .bind(override.id, now, input.householdId, source.id),
+        db
+          .prepare(`DELETE FROM inventory_settings WHERE household_id = ?1 AND product_id = ?2`)
+          .bind(input.householdId, source.id),
+      )
+
+      try {
+        await db.batch(statements)
+      } catch (error) {
+        if (isConflictGuardError(error) || isUniqueConstraintError(error)) {
+          throw new DomainError('INVENTORY_CHANGED', 'INVENTORY_CHANGED')
+        }
+
+        throw error
+      }
+
+      return readInventoryItem(input.householdId, override.id)
+    },
+
     async moveLot(input) {
       const lot = await requireHouseholdLot(input.householdId, input.lotId)
       const destination = await requireHouseholdLocation(input.householdId, input.locationId)
@@ -823,6 +1221,7 @@ export function createD1InventoryStore(db: D1DatabaseLike): InventoryStore {
              h.delta_quantity AS delta_quantity,
              h.unit AS unit,
              h.expires_on AS expires_on,
+             h.metadata AS metadata,
              h.created_at AS created_at
            FROM inventory_history h
            INNER JOIN products p ON p.id = h.product_id
@@ -847,6 +1246,7 @@ export function createD1InventoryStore(db: D1DatabaseLike): InventoryStore {
         deltaQuantity: row.delta_quantity,
         unit: row.unit,
         expiresOn: row.expires_on,
+        metadata: parseEditMetadata(row.metadata),
         createdAt: row.created_at,
       }))
     },

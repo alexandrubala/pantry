@@ -46,6 +46,22 @@ test('consumes earliest expiry first across multiple lots', () => {
   expect(plan.allocations.map((item) => item.quantity)).toEqual([500, 100])
 })
 
+test('consumes expired, then dated lots, then no-expiry last', () => {
+  const lots = [
+    lot({ id: 'none', quantity: 1, expiresOn: null }),
+    lot({ id: 'jan', quantity: 3, expiresOn: '2027-01-20' }),
+    lot({ id: 'nov', quantity: 2, expiresOn: '2026-11-15' }),
+  ]
+  const plan = buildConsumptionPlan(6, lots)
+  expect(plan.ok).toBe(true)
+  if (!plan.ok) {
+    return
+  }
+
+  expect(plan.allocations.map((item) => item.lotId)).toEqual(['nov', 'jan', 'none'])
+  expect(plan.allocations.map((item) => item.quantity)).toEqual([2, 3, 1])
+})
+
 test('uses expiry lots before no-expiry lots', () => {
   const lots = [
     lot({ id: 'none', quantity: 1000, expiresOn: null }),

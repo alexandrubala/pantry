@@ -136,6 +136,20 @@ export function updateProduct(
   return apiSend<CreateProductResponse>(`/api/v1/products/${encodeURIComponent(productId)}`, 'PATCH', input)
 }
 
+export function overrideHouseholdProductUnit(
+  productId: string,
+  input: {
+    unit: string
+    lots: Array<{ lotId: string; quantity: number }>
+  },
+) {
+  return apiSend<{ item: InventoryItem | null; product: InventoryItem['product'] | null }>(
+    `/api/v1/products/${encodeURIComponent(productId)}/local-override`,
+    'POST',
+    input,
+  )
+}
+
 export type BarcodeLookupExisting = {
   status: 'existing'
   product: ProductRecord
@@ -235,6 +249,25 @@ export function adjustLot(input: { lotId: string; expectedQuantity: number; quan
 
 export function moveLot(input: { lotId: string; locationId: string }) {
   return apiSend<InventoryMutationResponse>('/api/v1/inventory/move', 'POST', input)
+}
+
+export function updateLot(input: {
+  lotId: string
+  expected: {
+    quantity: number
+    locationId: string
+    expiresOn: string | null
+  }
+  quantity: number
+  locationId: string
+  expiresOn: string | null
+}) {
+  return apiSend<InventoryMutationResponse>(`/api/v1/inventory/lots/${encodeURIComponent(input.lotId)}`, 'PATCH', {
+    expected: input.expected,
+    quantity: input.quantity,
+    locationId: input.locationId,
+    expiresOn: input.expiresOn,
+  })
 }
 
 export function getInventoryHistory(productId?: string) {

@@ -19,7 +19,7 @@ import { ReceiptCapture } from '../components/scan/ReceiptCapture'
 import { ReceiptReview } from '../components/scan/ReceiptReview'
 import { useHousehold } from '../household/HouseholdProvider'
 import { isPantryApiError } from '../lib/api'
-import { formatKcal100g, formatMacroLine, unitLabel } from '../lib/inventory-format'
+import { formatKcal100g, formatMacroLine, unitLabel, catalogStockSuggestionHint } from '../lib/inventory-format'
 import {
   CATALOG_UNAVAILABLE_MESSAGE,
   PRODUCT_NAME_INVALID_MESSAGE,
@@ -707,6 +707,11 @@ function StockForm({
           required
           className={fieldClassName}
         />
+        {suggestedQuantity != null ? (
+          <p className="mt-1 text-sm text-warning">{catalogStockSuggestionHint(suggestedQuantity, unit)}</p>
+        ) : (
+          <p className="mt-1 text-sm text-muted">Introdu cantitatea reală înainte de a salva.</p>
+        )}
       </div>
       <div>
         <label className="text-sm font-medium" htmlFor={locationIdField}>

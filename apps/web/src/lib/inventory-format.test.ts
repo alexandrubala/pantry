@@ -1,15 +1,18 @@
 import { expect, test } from 'vitest'
 import {
   attentionCards,
+  catalogStockSuggestionHint,
   formatExpiryBadge,
   formatExpiryHeadline,
   formatHistoryHeadline,
   formatLotExpiry,
+  formatLotExpiryLine,
   formatQuantity,
   formatKcal100g,
   formatMacroLine,
   isExpirySoon,
   itemMatchesStatusFilter,
+  lotPlusButtonLabel,
   quickAddLot,
   unitLabel,
 } from './inventory-format'
@@ -26,6 +29,11 @@ test('formats Romanian quantities and unit labels', () => {
 test('formats expiry copy without shifting the calendar date', () => {
   expect(formatExpiryHeadline('2026-09-12', '2026-09-01')).toBe('12 sept.')
   expect(formatLotExpiry(null)).toBe('fără expirare')
+  expect(formatLotExpiryLine(null, '2026-09-06')).toBe('Fără expirare')
+  expect(formatLotExpiryLine('2026-09-05', '2026-09-06')).toBe('Expirat')
+  expect(formatLotExpiryLine('2026-09-06', '2026-09-06')).toBe('Expiră azi')
+  expect(formatLotExpiryLine('2026-09-07', '2026-09-06')).toBe('Expiră mâine')
+  expect(formatLotExpiryLine('2026-11-15', '2026-09-06')).toBe('Expiră: 15 nov. 2026')
 })
 
 test('uses semantic expiry labels for the 7-day window', () => {
@@ -188,7 +196,29 @@ test('status filters match low stock and expiry lots', () => {
       deltaQuantity: -50,
       unit: 'ml',
       expiresOn: null,
+      metadata: null,
       createdAt: '2026-09-06T18:42:00.000Z',
     }),
   ).toBe('Corectat · −50 ml Lapte')
+})
+
+test('catalog quantity suggestions stay visible and plus labels explain package adds', () => {
+  expect(catalogStockSuggestionHint(3, 'g')).toBe(
+    'Sugestie catalog: 3 g. Verifică cantitatea înainte de a salva.',
+  )
+  const product = {
+    id: 'p1',
+    name: 'Penne',
+    brand: null,
+    unit: 'g' as const,
+    barcode: null,
+    imageUrl: null,
+    source: 'open_food_facts' as const,
+    householdOwned: false,
+    externalCatalog: 'open_food_facts' as const,
+    packageQuantity: 500,
+    packageUnit: 'g' as const,
+    nutrition: null,
+  }
+  expect(lotPlusButtonLabel(item({ product }))).toBe('+ 1 pachet (500 g)')
 })

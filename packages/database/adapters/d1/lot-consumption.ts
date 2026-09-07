@@ -24,8 +24,33 @@ export function staleLotAbortStatement(
     householdId: string
     expectedQuantity: number
     locationId?: string
+    expiresKey?: string
   },
 ): D1PreparedStatementLike {
+  if (input.locationId != null && input.expiresKey != null) {
+    return db
+      .prepare(
+        `INSERT INTO inventory_conflict_abort (reason)
+         SELECT 'STALE_LOT'
+         WHERE NOT EXISTS (
+           SELECT 1
+           FROM inventory_lots
+           WHERE id = ?1
+             AND household_id = ?2
+             AND quantity = ?3
+             AND location_id = ?4
+             AND expires_key = ?5
+         )`,
+      )
+      .bind(
+        input.lotId,
+        input.householdId,
+        input.expectedQuantity,
+        input.locationId,
+        input.expiresKey,
+      )
+  }
+
   if (input.locationId) {
     return db
       .prepare(

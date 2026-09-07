@@ -108,6 +108,15 @@ test('new inventory polish routes require auth', async () => {
       )
     ).status,
   ).toBe(401)
+  expect(
+    (
+      await app.request(
+        '/api/v1/inventory/lots/lot-1',
+        { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: '{}' },
+        env,
+      )
+    ).status,
+  ).toBe(401)
 })
 
 test('low stock is deterministic including zero-lot tracked products', async () => {

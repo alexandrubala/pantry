@@ -3,6 +3,7 @@ import { LoaderCircle, Plus, Search } from 'lucide-react'
 import { useCallback, useEffect, useId, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import {
+  CorrectUnitSheet,
   EditProductSheet,
   HistorySheet,
   LotsSheet,
@@ -45,6 +46,7 @@ type SheetState =
   | { type: 'shop'; item: InventoryItem }
   | { type: 'minimum'; item: InventoryItem }
   | { type: 'edit'; item: InventoryItem }
+  | { type: 'correct-unit'; item: InventoryItem }
   | { type: 'lots'; item: InventoryItem }
   | { type: 'history'; item?: InventoryItem }
 
@@ -366,6 +368,11 @@ export function InventoryPage() {
                 onEdit={
                   item.product.householdOwned ? () => setSheet({ type: 'edit', item }) : undefined
                 }
+                onCorrectUnit={
+                  !item.product.householdOwned && item.product.barcode
+                    ? () => setSheet({ type: 'correct-unit', item })
+                    : undefined
+                }
                 onLots={() => setSheet({ type: 'lots', item })}
                 onHistory={() => setSheet({ type: 'history', item })}
               />
@@ -443,14 +450,25 @@ export function InventoryPage() {
         />
       ) : null}
 
-      {sheet.type === 'lots' ? (
-        <LotsSheet
+      {sheet.type === 'correct-unit' ? (
+        <CorrectUnitSheet
           item={sheet.item}
-          locations={locations}
           onClose={() => setSheet({ type: 'closed' })}
           onSaved={async () => {
             await reload()
             setSheet({ type: 'closed' })
+          }}
+        />
+      ) : null}
+
+      {sheet.type === 'lots' ? (
+        <LotsSheet
+          item={items.find((entry) => entry.product.id === sheet.item.product.id) ?? { ...sheet.item, lots: [], totalQuantity: 0 }}
+          locations={locations}
+          today={today}
+          onClose={() => setSheet({ type: 'closed' })}
+          onSaved={async () => {
+            await reload()
           }}
         />
       ) : null}

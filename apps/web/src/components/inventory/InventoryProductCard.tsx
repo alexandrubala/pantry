@@ -20,6 +20,7 @@ export function InventoryProductCard({
   onAddToShopping,
   onMinimum,
   onEdit,
+  onCorrectUnit,
   onLots,
   onHistory,
 }: {
@@ -34,6 +35,7 @@ export function InventoryProductCard({
   onAddToShopping: () => void
   onMinimum: () => void
   onEdit?: () => void
+  onCorrectUnit?: () => void
   onLots: () => void
   onHistory: () => void
 }) {
@@ -97,6 +99,17 @@ export function InventoryProductCard({
 
       {locationSummary ? <p className="mt-2 text-sm text-muted">{locationSummary}</p> : null}
 
+      {item.lots.length > 1 ? (
+        <button
+          type="button"
+          className="mt-2 text-sm font-medium text-accent"
+          onClick={onLots}
+        >
+          {item.lots.length} loturi
+          {nearestBadge ? ` · ${nearestBadge.status === 'later' ? `Expiră ${nearestBadge.label}` : nearestBadge.label}` : ''}
+        </button>
+      ) : null}
+
       <div className="mt-4 flex gap-2">
         <button
           type="button"
@@ -137,6 +150,7 @@ export function InventoryProductCard({
             )}
             <OverflowItem onClick={onMinimum}>Stoc minim</OverflowItem>
             {onEdit ? <OverflowItem onClick={onEdit}>Editează produsul</OverflowItem> : null}
+            {onCorrectUnit ? <OverflowItem onClick={onCorrectUnit}>Corectează unitatea</OverflowItem> : null}
             <OverflowItem onClick={onLots}>Loturi</OverflowItem>
             <OverflowItem onClick={onHistory}>Istoric</OverflowItem>
             <OverflowItem onClick={onAddStock}>Adaugă stoc</OverflowItem>

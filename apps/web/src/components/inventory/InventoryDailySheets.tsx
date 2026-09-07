@@ -3,9 +3,10 @@ import {
   validateMinimumQuantity,
   validateNonNegativeQuantity,
   validateProductName,
+  validateProductUnit,
   type InventoryHistoryEntry,
   type InventoryItem,
-  type InventoryLotRecord,
+  type Unit,
 } from '@pantry/core'
 import { LoaderCircle } from 'lucide-react'
 import { useEffect, useId, useState, type FormEvent } from 'react'
@@ -13,7 +14,6 @@ import { InventorySheet } from './InventorySheet'
 import {
   formatHistoryHeadline,
   formatHistoryWhen,
-  formatLotExpiry,
   formatQuantity,
   unitLabel,
 } from '../../lib/inventory-format'
@@ -23,12 +23,18 @@ import {
   mapPantryApiError,
 } from '../../lib/pantry-api-error'
 import {
-  adjustLot,
   getInventoryHistory,
-  moveLot,
+  overrideHouseholdProductUnit,
   setMinimumQuantity,
   updateProduct,
 } from '../../lib/pantry-api'
+
+const UNIT_OPTIONS: Array<{ value: Unit; label: string }> = [
+  { value: 'g', label: 'g' },
+  { value: 'ml', label: 'ml' },
+  { value: 'each', label: 'buc' },
+  { value: 'package', label: 'pachet' },
+]
 
 const fieldClassName =
   'mt-1.5 h-touch min-h-touch w-full rounded-lg border border-border bg-surface px-3 text-text shadow-surface placeholder:text-muted disabled:opacity-60'
@@ -197,56 +203,54 @@ export function EditProductSheet({
   )
 }
 
-export function LotsSheet({
+export function CorrectUnitSheet({
   item,
-  locations,
   onClose,
   onSaved,
 }: {
   item: InventoryItem
-  locations: Array<{ id: string; name: string }>
   onClose: () => void
   onSaved: () => Promise<void>
 }) {
-  const [selected, setSelected] = useState<InventoryLotRecord | null>(null)
-  const [quantity, setQuantity] = useState('')
-  const [locationId, setLocationId] = useState('')
+  const unitId = useId()
+  const [unit, setUnit] = useState<Unit>(item.product.unit === 'g' || item.product.unit === 'ml' ? 'package' : item.product.unit)
+  const [quantities, setQuantities] = useState<Record<string, string>>(() =>
+    Object.fromEntries(item.lots.map((lot) => [lot.id, ''])),
+  )
   const [formError, setFormError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  function openLot(lot: InventoryLotRecord) {
-    setSelected(lot)
-    setQuantity(String(lot.quantity))
-    setLocationId(lot.locationId)
-    setFormError(null)
-  }
-
-  async function handleAdjust(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!selected || isSubmitting) {
+    if (isSubmitting) {
       return
     }
 
     setFormError(null)
-    let parsed: number
+    let nextUnit: Unit
     try {
-      parsed = validateNonNegativeQuantity(Number(quantity.replace(',', '.')))
+      nextUnit = validateProductUnit(unit)
     } catch {
-      setFormError(QUANTITY_INVALID_MESSAGE)
+      setFormError('Alege o unitate validă.')
       return
+    }
+
+    const lots: Array<{ lotId: string; quantity: number }> = []
+    for (const lot of item.lots) {
+      try {
+        lots.push({
+          lotId: lot.id,
+          quantity: validateNonNegativeQuantity(Number((quantities[lot.id] ?? '').replace(',', '.'))),
+        })
+      } catch {
+        setFormError(QUANTITY_INVALID_MESSAGE)
+        return
+      }
     }
 
     setIsSubmitting(true)
     try {
-      if (locationId !== selected.locationId) {
-        await moveLot({ lotId: selected.id, locationId })
-      } else if (parsed !== selected.quantity) {
-        await adjustLot({
-          lotId: selected.id,
-          expectedQuantity: selected.quantity,
-          quantity: parsed,
-        })
-      }
+      await overrideHouseholdProductUnit(item.product.id, { unit: nextUnit, lots })
       await onSaved()
     } catch (cause) {
       setFormError(mapPantryApiError(cause))
@@ -256,73 +260,70 @@ export function LotsSheet({
   }
 
   return (
-    <InventorySheet title={`Loturi · ${item.product.name}`} onClose={onClose}>
-      {item.lots.length === 0 ? <p className="text-sm text-muted">Nu există loturi.</p> : null}
-      <ul className="space-y-2">
-        {item.lots.map((lot) => (
-          <li key={lot.id}>
-            <button
-              type="button"
-              className="flex w-full min-h-touch flex-col items-start rounded-xl border border-border px-3 py-2 text-left"
-              onClick={() => openLot(lot)}
-            >
-              <span className="font-medium">{lot.locationName}</span>
-              <span className="text-sm text-muted">
-                {formatQuantity(lot.quantity, item.product.unit)} · {formatLotExpiry(lot.expiresOn)}
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
-
-      {selected ? (
-        <form className="mt-4 flex flex-col gap-3 border-t border-border pt-4" onSubmit={handleAdjust}>
-          <p className="text-sm font-medium">Corectează lotul</p>
-          <div>
-            <label className="text-sm font-medium" htmlFor="lot-qty">
-              Cantitate ({unitLabel(item.product.unit)})
-            </label>
-            <input
-              id="lot-qty"
-              inputMode="decimal"
-              value={quantity}
-              onChange={(event) => setQuantity(event.target.value)}
-              className={fieldClassName}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium" htmlFor="lot-loc">
-              Mută în
-            </label>
-            <select
-              id="lot-loc"
-              value={locationId}
-              onChange={(event) => setLocationId(event.target.value)}
-              className={fieldClassName}
-            >
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div role="alert" className="min-h-5 text-sm text-destructive">
-            {formError}
-          </div>
-          <button
-            type="submit"
+    <InventorySheet title="Corectează unitatea" onClose={onClose}>
+      <p className="mb-3 text-sm text-muted">
+        Corecția rămâne doar pentru casa ta. Produsul din catalog nu se schimbă. Introdu cantitatea corectă
+        pentru fiecare lot — Pantry nu convertește {unitLabel(item.product.unit)} în {unitLabel(unit)}.
+      </p>
+      <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
+        <div>
+          <label className="text-sm font-medium" htmlFor={unitId}>
+            Unitate nouă
+          </label>
+          <select
+            id={unitId}
+            value={unit}
+            onChange={(event) => setUnit(event.target.value as Unit)}
             disabled={isSubmitting}
-            className="flex h-touch min-h-touch w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-accent-foreground disabled:opacity-60"
+            className={fieldClassName}
           >
-            {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-            {isSubmitting ? 'Se salvează...' : 'Salvează'}
-          </button>
-        </form>
-      ) : null}
+            {UNIT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        {item.lots.map((lot) => (
+          <div key={lot.id}>
+            <label className="text-sm font-medium" htmlFor={`override-${lot.id}`}>
+              {formatQuantity(lot.quantity, item.product.unit)} · {lot.locationName}
+              {lot.expiresOn ? ` · ${lot.expiresOn}` : ' · fără expirare'}
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id={`override-${lot.id}`}
+                inputMode="decimal"
+                value={quantities[lot.id] ?? ''}
+                onChange={(event) =>
+                  setQuantities((current) => ({ ...current, [lot.id]: event.target.value }))
+                }
+                disabled={isSubmitting}
+                required
+                className={fieldClassName}
+                placeholder="1"
+              />
+              <span className="mt-1.5 shrink-0 text-sm text-muted">{unitLabel(unit)}</span>
+            </div>
+          </div>
+        ))}
+        <div role="alert" className="min-h-5 text-sm text-destructive">
+          {formError}
+        </div>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="flex h-touch min-h-touch w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-accent-foreground disabled:opacity-60"
+        >
+          {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
+          {isSubmitting ? 'Se salvează...' : 'Corectează pentru casa mea'}
+        </button>
+      </form>
     </InventorySheet>
   )
 }
+
+export { LotsSheet } from './LotsSheet'
 
 export function HistorySheet({
   productId,

@@ -346,6 +346,66 @@ inventory.post('/inventory/adjust', async (c) => {
   }
 })
 
+inventory.patch('/inventory/lots/:id', async (c) => {
+  const user = await requireAuth(c.env, c.req.raw)
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
+  await ensureProfile(c.env.DB, user)
+
+  const lotId = c.req.param('id').trim()
+  if (!lotId) {
+    return c.json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  let payload: unknown
+  try {
+    payload = await c.req.json()
+  } catch {
+    return c.json({ error: 'Invalid quantity', code: 'INVALID_QUANTITY' }, 400)
+  }
+
+  const body = readJsonObject(payload)
+  const expected = body ? readJsonObject(body.expected) : null
+  if (
+    !body ||
+    !expected ||
+    !('quantity' in expected) ||
+    !('locationId' in expected) ||
+    !('expiresOn' in expected) ||
+    !('quantity' in body) ||
+    !('locationId' in body) ||
+    !('expiresOn' in body)
+  ) {
+    return c.json({ error: 'Invalid quantity', code: 'INVALID_QUANTITY' }, 400)
+  }
+
+  try {
+    const { household, inventory: store } = await requireActiveHousehold(c.env, user.id)
+    const item = await store.updateLot({
+      householdId: household.id,
+      userId: user.id,
+      lotId,
+      expected: {
+        quantity: expected.quantity,
+        locationId: expected.locationId,
+        expiresOn: expected.expiresOn,
+      },
+      quantity: body.quantity,
+      locationId: body.locationId,
+      expiresOn: body.expiresOn,
+    })
+    return c.json({ item })
+  } catch (error) {
+    if (isDomainError(error)) {
+      const mapped = domainResponse(error)
+      return c.json(mapped.body, mapped.status)
+    }
+    throw error
+  }
+})
+
 inventory.post('/inventory/move', async (c) => {
   const user = await requireAuth(c.env, c.req.raw)
   if (!user) {
