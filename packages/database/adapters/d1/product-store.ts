@@ -9,6 +9,7 @@ import {
   validateProductName,
   validateProductUnit,
   type ExternalCatalogId,
+  type HouseholdProductImageRecord,
   type ProductNutrition,
   type ProductRecord,
   type ProductStore,
@@ -42,9 +43,10 @@ type ProductRow = {
   carbohydrates_g_serving: number | null
   fat_g_serving: number | null
   nutrition_updated_at: string | null
+  custom_image_updated_at: string | null
 }
 
-const PRODUCT_SELECT = `SELECT
+const PRODUCT_COLUMNS = `SELECT
   p.id AS id,
   p.household_id AS household_id,
   p.name AS name,
@@ -69,9 +71,23 @@ const PRODUCT_SELECT = `SELECT
   n.protein_g_serving AS protein_g_serving,
   n.carbohydrates_g_serving AS carbohydrates_g_serving,
   n.fat_g_serving AS fat_g_serving,
-  n.updated_at AS nutrition_updated_at
+  n.updated_at AS nutrition_updated_at`
+
+function productSelect(customImageHouseholdBind: string | null): string {
+  const customColumn = customImageHouseholdBind
+    ? 'hpi.updated_at AS custom_image_updated_at'
+    : 'NULL AS custom_image_updated_at'
+  const join = customImageHouseholdBind
+    ? `LEFT JOIN household_product_images hpi
+         ON hpi.product_id = p.id AND hpi.household_id = ${customImageHouseholdBind}`
+    : ''
+
+  return `${PRODUCT_COLUMNS},
+  ${customColumn}
 FROM products p
-LEFT JOIN product_nutrition n ON n.product_id = p.id`
+LEFT JOIN product_nutrition n ON n.product_id = p.id
+${join}`
+}
 
 function newId(): string {
   return crypto.randomUUID()
@@ -126,6 +142,8 @@ function toProduct(row: ProductRow): ProductRecord {
     packageQuantity: row.package_quantity,
     packageUnit: row.package_unit,
     nutrition: toNutrition(row),
+    hasCustomImage: row.custom_image_updated_at != null,
+    customImageUpdatedAt: row.custom_image_updated_at ?? null,
   }
 }
 
@@ -148,14 +166,53 @@ function nutritionBindValues(productId: string, nutrition: ProductNutrition, now
   ]
 }
 
+type HouseholdProductImageRow = {
+  r2_key: string
+  content_type: string
+  created_by_user_id: string
+  created_at: string
+  updated_at: string
+}
+
+function toImageRecord(row: HouseholdProductImageRow): HouseholdProductImageRecord {
+  return {
+    r2Key: row.r2_key,
+    contentType: row.content_type,
+    createdByUserId: row.created_by_user_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
 export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
-  async function readById(productId: string): Promise<ProductRecord | null> {
-    const row = await db
-      .prepare(`${PRODUCT_SELECT} WHERE p.id = ?1`)
-      .bind(productId)
-      .first<ProductRow>()
+  async function readById(productId: string, householdId?: string | null): Promise<ProductRecord | null> {
+    const row = householdId
+      ? await db
+          .prepare(`${productSelect('?2')} WHERE p.id = ?1`)
+          .bind(productId, householdId)
+          .first<ProductRow>()
+      : await db
+          .prepare(`${productSelect(null)} WHERE p.id = ?1`)
+          .bind(productId)
+          .first<ProductRow>()
 
     return row ? toProduct(row) : null
+  }
+
+  async function readHouseholdImage(
+    householdId: string,
+    productId: string,
+  ): Promise<HouseholdProductImageRecord | null> {
+    const row = await db
+      .prepare(
+        `SELECT r2_key, content_type, created_by_user_id, created_at, updated_at
+         FROM household_product_images
+         WHERE household_id = ?1 AND product_id = ?2`,
+      )
+      .bind(householdId, productId)
+      .first<HouseholdProductImageRow>()
+
+    return row ? toImageRecord(row) : null
   }
 
   async function persistNutritionIfMissing(
@@ -224,6 +281,8 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
         unit: plan.defaultUnit,
         barcode: plan.barcode,
         imageUrl: null,
+        hasCustomImage: false,
+        customImageUpdatedAt: null,
         source: 'manual',
         externalCatalog: null,
         externalProductType: null,
@@ -239,7 +298,7 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
 
       const result = await db
         .prepare(
-          `${PRODUCT_SELECT}
+          `${productSelect('?1')}
            WHERE (p.household_id = ?1 OR p.household_id IS NULL)
              AND (?2 = '' OR p.normalized_name LIKE '%' || ?2 || '%')
            ORDER BY p.normalized_name ASC, p.name ASC`,
@@ -253,7 +312,7 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
     async getReadableProduct(input): Promise<ProductRecord | null> {
       const row = await db
         .prepare(
-          `${PRODUCT_SELECT}
+          `${productSelect('?2')}
            WHERE p.id = ?1 AND (p.household_id = ?2 OR p.household_id IS NULL)`,
         )
         .bind(input.productId, input.householdId)
@@ -265,7 +324,7 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
     async findReadableByBarcode(input): Promise<ProductRecord | null> {
       const barcode = validateBarcode(input.barcode)
       const householdRow = await db
-        .prepare(`${PRODUCT_SELECT} WHERE p.barcode = ?1 AND p.household_id = ?2`)
+        .prepare(`${productSelect('?2')} WHERE p.barcode = ?1 AND p.household_id = ?2`)
         .bind(barcode, input.householdId)
         .first<ProductRow>()
 
@@ -274,8 +333,8 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
       }
 
       const globalRow = await db
-        .prepare(`${PRODUCT_SELECT} WHERE p.barcode = ?1 AND p.household_id IS NULL`)
-        .bind(barcode)
+        .prepare(`${productSelect('?2')} WHERE p.barcode = ?1 AND p.household_id IS NULL`)
+        .bind(barcode, input.householdId)
         .first<ProductRow>()
 
       return globalRow ? toProduct(globalRow) : null
@@ -284,7 +343,7 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
     async importExternalProduct(input): Promise<ProductRecord> {
       const barcode = validateBarcode(input.barcode)
       const existing = await db
-        .prepare(`${PRODUCT_SELECT} WHERE p.barcode = ?1 AND p.household_id IS NULL`)
+        .prepare(`${productSelect(null)} WHERE p.barcode = ?1 AND p.household_id IS NULL`)
         .bind(barcode)
         .first<ProductRow>()
 
@@ -356,7 +415,7 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
         }
 
         const raced = await db
-          .prepare(`${PRODUCT_SELECT} WHERE p.barcode = ?1 AND p.household_id IS NULL`)
+          .prepare(`${productSelect(null)} WHERE p.barcode = ?1 AND p.household_id IS NULL`)
           .bind(barcode)
           .first<ProductRow>()
 
@@ -375,6 +434,8 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
         unit: plan.defaultUnit,
         barcode: plan.barcode,
         imageUrl: plan.imageUrl,
+        hasCustomImage: false,
+        customImageUpdatedAt: null,
         source: 'open_food_facts',
         externalCatalog: plan.externalCatalog,
         externalProductType: plan.externalProductType,
@@ -386,7 +447,9 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
 
     async updateManualProduct(input) {
       const row = await db
-        .prepare(`${PRODUCT_SELECT} WHERE p.id = ?1 AND p.household_id = ?2 AND p.source = 'manual'`)
+        .prepare(
+          `${productSelect('?2')} WHERE p.id = ?1 AND p.household_id = ?2 AND p.source = 'manual'`,
+        )
         .bind(input.productId, input.householdId)
         .first<ProductRow>()
 
@@ -452,7 +515,7 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
         .bind(name, normalizedName, brand, unit, nowIso(), row.id, input.householdId)
         .run()
 
-      const updated = await readById(row.id)
+      const updated = await readById(row.id, input.householdId)
       if (!updated) {
         throw new DomainError('NOT_FOUND', 'Not found')
       }
@@ -462,7 +525,9 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
 
     async createHouseholdOverrideProduct(input) {
       const source = await db
-        .prepare(`${PRODUCT_SELECT} WHERE p.id = ?1 AND (p.household_id = ?2 OR p.household_id IS NULL)`)
+        .prepare(
+          `${productSelect('?2')} WHERE p.id = ?1 AND (p.household_id = ?2 OR p.household_id IS NULL)`,
+        )
         .bind(input.sourceProductId, input.householdId)
         .first<ProductRow>()
 
@@ -480,7 +545,7 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
 
       const unit = validateProductUnit(input.unit)
       const existing = await db
-        .prepare(`${PRODUCT_SELECT} WHERE p.barcode = ?1 AND p.household_id = ?2`)
+        .prepare(`${productSelect('?2')} WHERE p.barcode = ?1 AND p.household_id = ?2`)
         .bind(source.barcode, input.householdId)
         .first<ProductRow>()
 
@@ -513,7 +578,7 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
           .bind(unit, nowIso(), existing.id, input.householdId)
           .run()
 
-        const updated = await readById(existing.id)
+        const updated = await readById(existing.id, input.householdId)
         if (!updated) {
           throw new DomainError('NOT_FOUND', 'Not found')
         }
@@ -551,7 +616,7 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
         }
 
         const raced = await db
-          .prepare(`${PRODUCT_SELECT} WHERE p.barcode = ?1 AND p.household_id = ?2`)
+          .prepare(`${productSelect('?2')} WHERE p.barcode = ?1 AND p.household_id = ?2`)
           .bind(source.barcode, input.householdId)
           .first<ProductRow>()
         if (!raced) {
@@ -560,11 +625,60 @@ export function createD1ProductStore(db: D1DatabaseLike): ProductStore {
         return toProduct(raced)
       }
 
-      const created = await readById(id)
+      const created = await readById(id, input.householdId)
       if (!created) {
         throw new DomainError('NOT_FOUND', 'Not found')
       }
       return created
+    },
+
+    async getHouseholdProductImage(input) {
+      return readHouseholdImage(input.householdId, input.productId)
+    },
+
+    async upsertHouseholdProductImage(input) {
+      const now = nowIso()
+      await db
+        .prepare(
+          `INSERT INTO household_product_images (
+             household_id, product_id, r2_key, content_type, created_by_user_id, created_at, updated_at
+           ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)
+           ON CONFLICT(household_id, product_id) DO UPDATE SET
+             r2_key = excluded.r2_key,
+             content_type = excluded.content_type,
+             created_by_user_id = excluded.created_by_user_id,
+             updated_at = excluded.updated_at`,
+        )
+        .bind(
+          input.householdId,
+          input.productId,
+          input.r2Key,
+          input.contentType,
+          input.createdByUserId,
+          now,
+        )
+        .run()
+
+      const saved = await readHouseholdImage(input.householdId, input.productId)
+      if (!saved) {
+        throw new DomainError('NOT_FOUND', 'Not found')
+      }
+
+      return saved
+    },
+
+    async deleteHouseholdProductImage(input) {
+      const existing = await readHouseholdImage(input.householdId, input.productId)
+      if (!existing) {
+        return null
+      }
+
+      await db
+        .prepare('DELETE FROM household_product_images WHERE household_id = ?1 AND product_id = ?2')
+        .bind(input.householdId, input.productId)
+        .run()
+
+      return existing
     },
   }
 }

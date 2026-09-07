@@ -15,6 +15,7 @@ import {
   SHOPPING_UNIT_CONFLICT_MESSAGE,
   CATALOG_UNAVAILABLE_MESSAGE,
   BARCODE_INVALID_MESSAGE,
+  PRODUCT_IMAGE_INVALID_MESSAGE,
   insufficientStockMessage,
   EMPTY_INVENTORY_MESSAGE,
   AI_UNAVAILABLE_MESSAGE,
@@ -53,6 +54,9 @@ test('maps household, location, and inventory API codes to Romanian copy', () =>
   )
   expect(mapPantryApiError(new PantryApiError(400, 'Invalid barcode', 'INVALID_BARCODE'))).toBe(
     BARCODE_INVALID_MESSAGE,
+  )
+  expect(mapPantryApiError(new PantryApiError(400, 'PRODUCT_IMAGE_INVALID', 'PRODUCT_IMAGE_INVALID'))).toBe(
+    PRODUCT_IMAGE_INVALID_MESSAGE,
   )
   expect(mapPantryApiError(new PantryApiError(503, 'Catalog temporarily unavailable', 'CATALOG_UNAVAILABLE'))).toBe(
     CATALOG_UNAVAILABLE_MESSAGE,

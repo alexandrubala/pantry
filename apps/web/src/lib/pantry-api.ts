@@ -150,6 +150,20 @@ export function overrideHouseholdProductUnit(
   )
 }
 
+export function uploadProductImage(productId: string, image: Blob, fileName = 'product.webp') {
+  const form = new FormData()
+  form.append('image', image, fileName)
+  return apiSendForm<CreateProductResponse>(
+    `/api/v1/products/${encodeURIComponent(productId)}/image`,
+    form,
+    'PUT',
+  )
+}
+
+export function deleteProductImage(productId: string) {
+  return apiSend<CreateProductResponse>(`/api/v1/products/${encodeURIComponent(productId)}/image`, 'DELETE')
+}
+
 export type BarcodeLookupExisting = {
   status: 'existing'
   product: ProductRecord

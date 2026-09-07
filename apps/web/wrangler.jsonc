@@ -29,8 +29,9 @@
       "migrations_dir": "../../packages/database/migrations",
     },
   ],
-  // Reserved for future Pantry-owned assets. No uploads or public access yet.
-  // Local Vite/Wrangler uses a simulated R2 by default. Do not set remote: true.
+  // Private household product photos. No public r2.dev access; served only
+  // through authenticated Worker routes. Local Vite/Wrangler uses simulated R2.
+  // Do not set remote: true.
   "r2_buckets": [
     {
       "binding": "R2",

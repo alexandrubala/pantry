@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import { memoryR2, type MemoryR2 } from './memory-r2'
 
 const TEST_SECRET = 'test-secret-at-least-32-characters-long'
 const TEST_URL = 'http://localhost:5173'
@@ -79,6 +80,7 @@ export function openPantryDb() {
   db.exec(readFileSync(join(migrationsDir(), '0010_household_sharing.sql'), 'utf8'))
   db.exec(readFileSync(join(migrationsDir(), '0011_settings_receipts.sql'), 'utf8'))
   db.exec(readFileSync(join(migrationsDir(), '0012_inventory_lot_edit.sql'), 'utf8'))
+  db.exec(readFileSync(join(migrationsDir(), '0013_household_product_images.sql'), 'utf8'))
   return db
 }
 
@@ -96,13 +98,18 @@ export function insertProfile(db: DatabaseSync, id: string, displayName: string)
   ).run(id, displayName)
 }
 
-export function envWithDb(db: DatabaseSync, aiRun?: (model: string, inputs: unknown, options?: unknown) => Promise<unknown>) {
+export function envWithDb(
+  db: DatabaseSync,
+  aiRun?: (model: string, inputs: unknown, options?: unknown) => Promise<unknown>,
+  r2: MemoryR2 = memoryR2(),
+) {
   return {
     DB: sqliteAsD1(db),
     BETTER_AUTH_SECRET: TEST_SECRET,
     BETTER_AUTH_URL: TEST_URL,
     AI_MODEL: '@cf/meta/llama-4-scout-17b-16e-instruct',
     RECEIPT_AI_MODEL: '@cf/google/gemma-4-26b-a4b-it',
+    R2: r2,
     AI: {
       async run(model: string, inputs: unknown, options?: unknown) {
         if (!aiRun) {

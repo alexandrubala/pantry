@@ -42,6 +42,7 @@ type LotJoinRow = {
   product_unit: Unit
   product_barcode: string | null
   product_image_url: string | null
+  custom_image_updated_at: string | null
   product_source: 'manual' | 'open_food_facts'
   product_household_id: string | null
   product_external_catalog: ExternalCatalogId | null
@@ -228,6 +229,8 @@ function emptyItem(row: LotJoinRow): InventoryItem {
       unit: row.product_unit,
       barcode: row.product_barcode,
       imageUrl: row.product_image_url,
+      hasCustomImage: row.custom_image_updated_at != null,
+      customImageUpdatedAt: row.custom_image_updated_at ?? null,
       source: row.product_source,
       householdOwned: row.product_household_id != null && row.product_source === 'manual',
       externalCatalog: row.product_external_catalog,
@@ -352,6 +355,7 @@ export function createD1InventoryStore(db: D1DatabaseLike): InventoryStore {
            p.default_unit AS product_unit,
            p.barcode AS product_barcode,
            p.image_url AS product_image_url,
+           hpi.updated_at AS custom_image_updated_at,
            p.source AS product_source,
            p.household_id AS product_household_id,
            p.external_catalog AS product_external_catalog,
@@ -392,6 +396,8 @@ export function createD1InventoryStore(db: D1DatabaseLike): InventoryStore {
          LEFT JOIN inventory_settings s
            ON s.household_id = ?1 AND s.product_id = p.id
          LEFT JOIN product_nutrition n ON n.product_id = p.id
+         LEFT JOIN household_product_images hpi
+           ON hpi.household_id = ?1 AND hpi.product_id = p.id
          WHERE (p.household_id = ?1 OR p.household_id IS NULL)
            AND (?2 = '' OR l.location_id = ?2)
            AND (?3 = '' OR p.normalized_name LIKE '%' || ?3 || '%')

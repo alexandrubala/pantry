@@ -23,6 +23,8 @@ function item(partial: {
       unit: partial.unit,
       barcode: null,
       imageUrl: null,
+      hasCustomImage: false,
+      customImageUpdatedAt: null,
       source: 'manual',
       householdOwned: true,
       externalCatalog: null,

@@ -7,6 +7,7 @@ import {
   formatMacroLine,
   formatQuantity,
 } from '../../lib/inventory-format'
+import { productDisplayImageUrl, productHasVisibleImage } from '../../lib/product-image'
 
 export function InventoryProductCard({
   item,
@@ -23,6 +24,7 @@ export function InventoryProductCard({
   onCorrectUnit,
   onLots,
   onHistory,
+  onChangeImage,
 }: {
   item: InventoryItem
   today: string
@@ -38,6 +40,7 @@ export function InventoryProductCard({
   onCorrectUnit?: () => void
   onLots: () => void
   onHistory: () => void
+  onChangeImage: () => void
 }) {
   const nearestBadge = item.nearestExpiry ? formatExpiryBadge(item.nearestExpiry, today) : null
   const nutrition = item.product.nutrition
@@ -45,12 +48,28 @@ export function InventoryProductCard({
   const macros = nutrition ? formatMacroLine(nutrition) : null
   const locationSummary = summarizeLocations(item)
   const countUnit = item.product.unit === 'each' || item.product.unit === 'package'
+  const hasImage = productHasVisibleImage(item.product)
+  const imageUrl = productDisplayImageUrl(item.product)
+  const imageActionLabel = hasImage ? 'Schimbă poza' : 'Adaugă poză'
 
   return (
     <article className="rounded-2xl border border-border bg-surface-elevated p-4 shadow-surface">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
-          <ProductImage url={item.product.imageUrl} name={item.product.name} sizeClassName="size-14" />
+          <button
+            type="button"
+            className="shrink-0 rounded-xl"
+            onClick={onChangeImage}
+            aria-label={imageActionLabel}
+          >
+            <ProductImage
+              url={imageUrl}
+              fallbackUrl={item.product.hasCustomImage ? item.product.imageUrl : null}
+              name={item.product.name}
+              sizeClassName="size-14"
+              decorative
+            />
+          </button>
           <div className="min-w-0">
             <h2 className="text-lg font-semibold tracking-tight">{item.product.name}</h2>
             {item.product.brand ? <p className="mt-0.5 text-sm text-muted">{item.product.brand}</p> : null}
@@ -139,6 +158,7 @@ export function InventoryProductCard({
             role="menu"
             className="absolute right-0 z-10 mt-1 w-56 rounded-xl border border-border bg-surface-elevated p-1 shadow-elevated"
           >
+            <OverflowItem onClick={onChangeImage}>{imageActionLabel}</OverflowItem>
             {item.lowStock ? (
               <OverflowItem disabled={shoppingBusy} onClick={onAddToShopping}>
                 Adaugă la cumpărături

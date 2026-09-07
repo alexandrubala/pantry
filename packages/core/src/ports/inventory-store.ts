@@ -18,6 +18,8 @@ export type InventoryProduct = {
   unit: Unit
   barcode: string | null
   imageUrl: string | null
+  hasCustomImage: boolean
+  customImageUpdatedAt: string | null
   source: 'manual' | 'open_food_facts'
   householdOwned: boolean
   externalCatalog: ExternalCatalogId | null

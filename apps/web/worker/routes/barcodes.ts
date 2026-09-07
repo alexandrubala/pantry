@@ -69,6 +69,8 @@ function toApiProduct(product: ProductRecord) {
     unit: product.unit,
     barcode: product.barcode,
     imageUrl: product.imageUrl,
+    hasCustomImage: product.hasCustomImage,
+    customImageUpdatedAt: product.customImageUpdatedAt,
     source: product.source,
     externalCatalog: product.externalCatalog,
     externalProductType: product.externalProductType,

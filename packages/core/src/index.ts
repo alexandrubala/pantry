@@ -61,6 +61,13 @@ export {
 export { UNITS, isUnit, validateProductUnit, type Unit } from './product/units.js'
 export { validateBarcode, MIN_BARCODE_LENGTH, MAX_BARCODE_LENGTH } from './barcode/validate.js'
 export {
+  PRODUCT_ALLOWED_IMAGE_TYPES,
+  PRODUCT_MAX_IMAGE_BYTES,
+  inspectProductImage,
+  type InspectedProductImage,
+  type ProductImageContentType,
+} from './product/image.js'
+export {
   defaultUnitFromPackage,
   inferPackageQuantity,
   type PackageQuantityInference,
@@ -138,7 +145,11 @@ export type {
   HouseholdMemberRecord,
   HouseholdSharingStore,
 } from './ports/household-sharing-store.js'
-export type { ProductRecord, ProductStore } from './ports/product-store.js'
+export type {
+  HouseholdProductImageRecord,
+  ProductRecord,
+  ProductStore,
+} from './ports/product-store.js'
 export type {
   ExpiringLot,
   InventoryHistoryAction,

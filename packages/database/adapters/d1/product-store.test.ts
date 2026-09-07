@@ -116,3 +116,59 @@ test('concurrent external imports create a single global product and nutrition r
     protein: 6.3,
   })
 })
+
+test('household custom image flags are isolated and do not change catalog image_url', async () => {
+  const ctx = await seedHousehold()
+  insertUser(ctx.sqlite, 'user-2', 'Bo', 'bo@example.invalid')
+  insertProfile(ctx.sqlite, 'user-2', 'Bo')
+  const other = await ctx.households.createHouseholdWithOwnerAndLocations({
+    userId: 'user-2',
+    name: 'Casa B',
+    ownerDisplayName: 'Bo',
+  })
+
+  const global = await ctx.products.importExternalProduct({
+    barcode: '3017620422003',
+    catalog: 'open_food_facts',
+    productType: 'food',
+    name: 'Nutella',
+    brand: 'Ferrero',
+    unit: 'g',
+    imageUrl: 'https://images.openfoodfacts.org/images/products/front.jpg',
+    packageQuantity: 400,
+    packageUnit: 'g',
+    nutrition: nutellaNutrition,
+  })
+
+  await ctx.products.upsertHouseholdProductImage({
+    householdId: ctx.householdId,
+    productId: global.id,
+    r2Key: 'households/a/products/p/one.webp',
+    contentType: 'image/webp',
+    createdByUserId: ctx.userId,
+  })
+
+  const forOwner = await ctx.products.getReadableProduct({
+    householdId: ctx.householdId,
+    productId: global.id,
+  })
+  const forOther = await ctx.products.getReadableProduct({
+    householdId: other.household.id,
+    productId: global.id,
+  })
+
+  expect(forOwner).toMatchObject({
+    imageUrl: 'https://images.openfoodfacts.org/images/products/front.jpg',
+    hasCustomImage: true,
+  })
+  expect(forOwner?.customImageUpdatedAt).toEqual(expect.any(String))
+  expect(forOther).toMatchObject({
+    imageUrl: 'https://images.openfoodfacts.org/images/products/front.jpg',
+    hasCustomImage: false,
+    customImageUpdatedAt: null,
+  })
+  expect(
+    ctx.sqlite.prepare('SELECT image_url FROM products WHERE id = ?').get(global.id),
+  ).toEqual({ image_url: 'https://images.openfoodfacts.org/images/products/front.jpg' })
+  expect(JSON.stringify(forOwner)).not.toMatch(/r2_key|r2Key/)
+})

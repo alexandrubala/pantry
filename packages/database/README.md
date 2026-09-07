@@ -38,6 +38,10 @@ Commands from the repo root. Wrangler config is `apps/web/wrangler.jsonc`.
 
 `0011_settings_receipts.sql` creates `receipt_ai_rate_limits`. Raw receipt images are not stored. Household rename and location rename/deactivate use existing `households` / `locations` columns.
 
+`0012_inventory_lot_edit.sql` rebuilds `inventory_history` so `action` may be `edit` with optional `metadata`.
+
+`0013_household_product_images.sql` creates `household_product_images` (one custom display image per product per household). Image bytes are stored in private R2; D1 keeps only `r2_key` and metadata. Catalog `products.image_url` is never overwritten.
+
 D1 adapters live in `adapters/d1/` and implement `@pantry/core` ports. They must not be imported from `packages/core`.
 
 ## Portability

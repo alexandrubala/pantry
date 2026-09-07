@@ -10,6 +10,12 @@ import {
 import { createD1HouseholdStore, createD1InventoryStore, createD1ProductStore } from '@pantry/database/d1'
 import { requireAuth } from '../auth/authorize.js'
 import { ensureProfile } from '../profiles/profile.js'
+import {
+  readUploadedProductImage,
+  removeHouseholdProductImage,
+  replaceHouseholdProductImage,
+  serveHouseholdProductImage,
+} from '../product-images.js'
 
 export const products = new Hono<{ Bindings: CloudflareBindings }>()
 
@@ -40,7 +46,9 @@ function domainResponse(error: DomainError) {
         error.code === 'INSUFFICIENT_STOCK' ||
         error.code === 'STOCK_CONFLICT' ||
         error.code === 'INVENTORY_CHANGED' ||
-        error.code === 'UNIT_IMMUTABLE'
+        error.code === 'UNIT_IMMUTABLE' ||
+        error.code === 'PRODUCT_IMAGE_INVALID' ||
+        error.code === 'PRODUCT_IMAGE_TOO_LARGE'
           ? error.code
           : error.message,
       code: error.code,
@@ -217,6 +225,102 @@ products.post('/products/:id/local-override', async (c) => {
       lots: body.lots ?? [],
     })
     return c.json({ item, product: item?.product ?? null })
+  } catch (error) {
+    if (isDomainError(error)) {
+      const mapped = domainResponse(error)
+      return c.json(mapped.body, mapped.status)
+    }
+    throw error
+  }
+})
+
+products.put('/products/:id/image', async (c) => {
+  const user = await requireAuth(c.env, c.req.raw)
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
+  await ensureProfile(c.env.DB, user)
+
+  const productId = c.req.param('id').trim()
+  if (!productId) {
+    return c.json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  try {
+    const { household, products: store } = await requireActiveHousehold(c.env, user.id)
+    const image = await readUploadedProductImage(c.req.raw)
+    const product = await replaceHouseholdProductImage({
+      r2: c.env.R2,
+      products: store,
+      householdId: household.id,
+      productId,
+      userId: user.id,
+      bytes: image.bytes,
+      contentType: image.contentType,
+    })
+    return c.json({ product })
+  } catch (error) {
+    if (isDomainError(error)) {
+      const mapped = domainResponse(error)
+      return c.json(mapped.body, mapped.status)
+    }
+    throw error
+  }
+})
+
+products.get('/products/:id/image', async (c) => {
+  const user = await requireAuth(c.env, c.req.raw)
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
+  await ensureProfile(c.env.DB, user)
+
+  const productId = c.req.param('id').trim()
+  if (!productId) {
+    return c.json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  try {
+    const { household, products: store } = await requireActiveHousehold(c.env, user.id)
+    return await serveHouseholdProductImage({
+      r2: c.env.R2,
+      products: store,
+      householdId: household.id,
+      productId,
+    })
+  } catch (error) {
+    if (isDomainError(error)) {
+      const mapped = domainResponse(error)
+      return c.json(mapped.body, mapped.status)
+    }
+    throw error
+  }
+})
+
+products.delete('/products/:id/image', async (c) => {
+  const user = await requireAuth(c.env, c.req.raw)
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
+  await ensureProfile(c.env.DB, user)
+
+  const productId = c.req.param('id').trim()
+  if (!productId) {
+    return c.json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  try {
+    const { household, products: store } = await requireActiveHousehold(c.env, user.id)
+    const product = await removeHouseholdProductImage({
+      r2: c.env.R2,
+      products: store,
+      householdId: household.id,
+      productId,
+    })
+    return c.json({ product })
   } catch (error) {
     if (isDomainError(error)) {
       const mapped = domainResponse(error)

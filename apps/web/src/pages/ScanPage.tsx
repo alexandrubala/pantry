@@ -13,6 +13,7 @@ import { LoaderCircle } from 'lucide-react'
 import { useEffect, useId, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { InventorySheet } from '../components/inventory/InventorySheet'
+import { ProductImageSheet } from '../components/inventory/ProductImageSheet'
 import { BarcodeScanner } from '../components/scan/BarcodeScanner'
 import { ProductImage } from '../components/scan/ProductImage'
 import { ReceiptCapture } from '../components/scan/ReceiptCapture'
@@ -35,6 +36,7 @@ import {
   type ExternalBarcodeProduct,
   type ReceiptExtractResponse,
 } from '../lib/pantry-api'
+import { productDisplayImageUrl, productHasVisibleImage } from '../lib/product-image'
 
 const fieldClassName =
   'mt-1.5 h-touch min-h-touch w-full rounded-lg border border-border bg-surface px-3 text-text shadow-surface placeholder:text-muted disabled:opacity-60'
@@ -326,7 +328,7 @@ function NutritionBlock({ nutrition }: { nutrition: ProductNutrition | null }) {
 }
 
 function ExistingProductScan({
-  product,
+  product: initialProduct,
   locations,
   defaultLocationId,
   onSaved,
@@ -338,16 +340,28 @@ function ExistingProductScan({
   onSaved: () => Promise<void> | void
   onRescan: () => void
 }) {
+  const [product, setProduct] = useState(initialProduct)
+  const [imageOpen, setImageOpen] = useState(false)
+  const imageLabel = productHasVisibleImage(product) ? 'Schimbă poza' : 'Adaugă poză'
+
   return (
     <div>
       <ProductSummary
         name={product.name}
         brand={product.brand}
         barcode={product.barcode}
-        imageUrl={product.imageUrl}
+        imageUrl={productDisplayImageUrl(product)}
+        fallbackImageUrl={product.hasCustomImage ? product.imageUrl : null}
         catalog={product.externalCatalog}
         nutrition={product.nutrition}
       />
+      <button
+        type="button"
+        className="mt-3 text-sm font-medium text-accent"
+        onClick={() => setImageOpen(true)}
+      >
+        {imageLabel}
+      </button>
       <StockForm
         productId={product.id}
         unit={product.unit}
@@ -359,6 +373,16 @@ function ExistingProductScan({
       <button type="button" onClick={onRescan} className="mt-3 w-full text-sm text-muted">
         Scanează alt produs
       </button>
+      {imageOpen ? (
+        <ProductImageSheet
+          product={product}
+          onClose={() => setImageOpen(false)}
+          onSaved={async (next) => {
+            setProduct(next)
+            setImageOpen(false)
+          }}
+        />
+      ) : null}
     </div>
   )
 }
@@ -557,6 +581,7 @@ function ProductSummary({
   brand,
   barcode,
   imageUrl,
+  fallbackImageUrl = null,
   catalog,
   quantityText,
   nutrition,
@@ -565,6 +590,7 @@ function ProductSummary({
   brand: string | null
   barcode: string | null
   imageUrl: string | null
+  fallbackImageUrl?: string | null
   catalog: ExternalCatalogId | null
   quantityText?: string | null
   nutrition: ProductNutrition | null
@@ -572,7 +598,7 @@ function ProductSummary({
   return (
     <div>
       <div className="flex items-start gap-3">
-        <ProductImage url={imageUrl} name={name} />
+        <ProductImage url={imageUrl} fallbackUrl={fallbackImageUrl} name={name} />
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">{name}</h1>
           {brand ? <p className="mt-1 text-sm text-muted">{brand}</p> : null}

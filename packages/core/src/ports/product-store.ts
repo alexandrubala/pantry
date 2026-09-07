@@ -9,12 +9,22 @@ export type ProductRecord = {
   unit: Unit
   barcode: string | null
   imageUrl: string | null
+  hasCustomImage: boolean
+  customImageUpdatedAt: string | null
   source: 'manual' | 'open_food_facts'
   externalCatalog: ExternalCatalogId | null
   externalProductType: string | null
   packageQuantity: number | null
   packageUnit: Unit | null
   nutrition: ProductNutrition | null
+}
+
+export type HouseholdProductImageRecord = {
+  r2Key: string
+  contentType: string
+  createdByUserId: string
+  createdAt: string
+  updatedAt: string
 }
 
 export type ProductStore = {
@@ -58,4 +68,19 @@ export type ProductStore = {
     sourceProductId: string
     unit: string
   }): Promise<ProductRecord>
+  getHouseholdProductImage(input: {
+    householdId: string
+    productId: string
+  }): Promise<HouseholdProductImageRecord | null>
+  upsertHouseholdProductImage(input: {
+    householdId: string
+    productId: string
+    r2Key: string
+    contentType: string
+    createdByUserId: string
+  }): Promise<HouseholdProductImageRecord>
+  deleteHouseholdProductImage(input: {
+    householdId: string
+    productId: string
+  }): Promise<HouseholdProductImageRecord | null>
 }

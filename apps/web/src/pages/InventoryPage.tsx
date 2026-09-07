@@ -12,6 +12,7 @@ import {
 import { ConsumeSheet } from '../components/inventory/ConsumeSheet'
 import { InventoryProductCard } from '../components/inventory/InventoryProductCard'
 import { InventorySheet } from '../components/inventory/InventorySheet'
+import { ProductImageSheet } from '../components/inventory/ProductImageSheet'
 import { useHousehold } from '../household/HouseholdProvider'
 import {
   attentionCards,
@@ -49,6 +50,7 @@ type SheetState =
   | { type: 'correct-unit'; item: InventoryItem }
   | { type: 'lots'; item: InventoryItem }
   | { type: 'history'; item?: InventoryItem }
+  | { type: 'image'; item: InventoryItem }
 
 export function InventoryPage() {
   const { household, locations } = useHousehold()
@@ -375,6 +377,7 @@ export function InventoryPage() {
                 }
                 onLots={() => setSheet({ type: 'lots', item })}
                 onHistory={() => setSheet({ type: 'history', item })}
+                onChangeImage={() => setSheet({ type: 'image', item })}
               />
             </li>
           ))}
@@ -478,6 +481,17 @@ export function InventoryPage() {
           productId={sheet.item?.product.id}
           productName={sheet.item?.product.name}
           onClose={() => setSheet({ type: 'closed' })}
+        />
+      ) : null}
+
+      {sheet.type === 'image' ? (
+        <ProductImageSheet
+          product={sheet.item.product}
+          onClose={() => setSheet({ type: 'closed' })}
+          onSaved={async () => {
+            await reload()
+            setSheet({ type: 'closed' })
+          }}
         />
       ) : null}
     </section>

@@ -97,9 +97,9 @@ export function apiSend<T>(path: string, method: 'POST' | 'PUT' | 'PATCH' | 'DEL
   })
 }
 
-export function apiSendForm<T>(path: string, body: FormData): Promise<T> {
+export function apiSendForm<T>(path: string, body: FormData, method: 'POST' | 'PUT' = 'POST'): Promise<T> {
   return apiRequest<T>(path, {
-    method: 'POST',
+    method,
     body,
   })
 }

@@ -44,6 +44,9 @@ export const RECEIPT_IMAGE_INVALID_MESSAGE = 'Alege o imagine JPEG, PNG sau WebP
 export const RECEIPT_NO_ITEMS_MESSAGE = 'Nu am găsit produse pe acest bon. Încearcă o poză mai clară.'
 export const RECEIPT_EXTRACTION_FAILED_MESSAGE = 'Nu am putut citi bonul. Încearcă din nou.'
 export const RECEIPT_RATE_LIMIT_MESSAGE = 'Ai atins limita de scanări de bonuri pe oră. Încearcă mai târziu.'
+export const PRODUCT_IMAGE_INVALID_MESSAGE = 'Alege o imagine JPEG, PNG sau WebP.'
+export const PRODUCT_IMAGE_TOO_LARGE_MESSAGE =
+  'Imaginea e prea mare. Fă o poză mai apropiată sau alege o imagine mai mică.'
 
 export function insufficientStockMessage(availableLabel: string): string {
   return `Nu ai suficient stoc. Disponibil: ${availableLabel}`
@@ -118,8 +121,12 @@ export function mapPantryApiError(error: unknown): string {
         return AI_UNAVAILABLE_MESSAGE
       case 'RECEIPT_IMAGE_TOO_LARGE':
         return RECEIPT_IMAGE_TOO_LARGE_MESSAGE
+      case 'PRODUCT_IMAGE_TOO_LARGE':
+        return PRODUCT_IMAGE_TOO_LARGE_MESSAGE
       case 'RECEIPT_IMAGE_INVALID':
         return RECEIPT_IMAGE_INVALID_MESSAGE
+      case 'PRODUCT_IMAGE_INVALID':
+        return PRODUCT_IMAGE_INVALID_MESSAGE
       case 'RECEIPT_NO_ITEMS':
         return RECEIPT_NO_ITEMS_MESSAGE
       case 'RECEIPT_EXTRACTION_FAILED':
